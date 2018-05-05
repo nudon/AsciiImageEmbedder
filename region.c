@@ -1,106 +1,16 @@
-//these will store whatever metadata I want
-
-typedef
-struct {
-  //some color
-} myColor;
-
-//just a subset of pixels
-typedef
-struct {
-  int rows;
-  int cols;
-  myColor *** cells;
-} colorMatrix;
-
-
-typedef
-struct {
-  int rows;
-  int cols;
-  //float instead?
-  int *** cells;
-  colorMatrix* source;
-} profileMatrix;
-
-
-
-
-
-//things for each character 
-typedef
-struct {
-  char character;
-  //some vector format of character?
-  //or maybe a large enough raster?
-  profileMatrix * profile;
-} character;
-
-//will contain image, some dimensions, probably some aspect ratio things as well,
-//as well as heigh/width of subRects
-//the filled chars will be some mirror array of the subRect array, which will get filled with respective matches
-typedef
-struct {
-  //SDL_Surface/texture
-  int width;
-  int height;
-  //matrix ***?
-  profileMatrix*** profiles;
-  char*** filledChars;
-} image;
-
-// so, have matrix. in general it contains metainformation like value of a pixel or group of pixel
-// have some parameters, like how many pixels should a character represent. in general picDim * char / pixel  = dim of pic in chars
-// another parameter, how fine grained should the profile matrix be. Should it store metaDate in a 1-1 relationship with pixels? or group nearby pixels into 1 cell
-// at any rate profile matrix has to have a matching aspect ratio to the pixel region it covers. 1-1 will work, other options. Not actually sure why I'd want grouping
-// characters, in display they are usually rectangularish. some aspect ratio  issues. Would either stretch image or just do weird stuff on boundaries
-// also some issues with dimensions of image. if it's a prime number or otherwise hard to tesselate into rectangles, might need to scale it up/down
-// so issue of aspect ratios and having image dimensions that lend to tesselation
-// 
-// then, need two algs
-// first, looking at an arrangement of pixels and generating a profile of it
-// second, need to find a closest match of another profile
-// depends heavily on how I define the metadate stored in the profile matrixes
-
-// for metadata, thinking of just storing value/lightness of pixel
-// comparision could then come down to 2 things:
-// 1, just counting the number of "matches" between profiles, so just seeing how close the profileMatrix cells are in value
-// 2, which is similarities  in profile matrices. 2 matrices could have a checkerboard pattern, but be offest so no tiles match. but the two tiles look visually alike.
-// generally seems like just matching between average grayscale/darkness values is a decent way
-// in that case, may need a seconday matrix to store, for each profile, how different it is from adjacent cells. or other things like that, 
-// in 2nd case, doing some kind of edge detection might be a good idea. have some way of comparing differences of colors, if difference gets too high say it's a new edge?
-//idea was to reduce lines/edges into horizontal, vertical, diagnol, and also contain some orientation. would compare the number and types of edges between to profiles
-
-//guess it would be a good idea to pick an image library first
-//I know SDL has some stuff for it, but might be overkill
-//Imagemagick also has some stuff. used that a bit for primitive file conversion
-//those are the only 2 I know really. 
-
-//rough stuff for edge detection
-typedef
-struct {
-  int top;
-  int bottom;
-  int left;
-  int right;
-  int table;
-  int pole;
-  int forward;
-  int backward;
-
-} edges;
-
-typedef enum {  topCheck,  bottomCheck, leftCheck, rightCheck, tableCheck, poleCheck, forwardCheck, backwardCheck} edgeCheck;
+#include <stdlib.h>
+#include "region.h"
 
 edges * detectEdge(profileMatrix* prof) {
-  int detectedEdges[prof->source->cols][prof->source->rows];
-  fillDiffMatrix(detectedEdges, prof);
-
+  //int detectedEdges[prof->source->cols][prof->source->rows];
+  int** detectedDiffs = NULL;
+  fillDiffMatrix(detectedDiffs, prof);
+  edges* found = findEdges(detectedDiffs, prof);
     //anyways, as long as I'm only considering a reduced set of edges to idenfiy, could just have several different for loops that walk across the array, sush as diagonally, and checking if cells within a certain array are flipped.
   //so, walk down some imaginary line in array. have another parameter for for far to look from line for deteced edges. good to have parameter be relative to dim of profile
   //keep track of how many edges within boundary along line were detected, if thats above another parameter(or maybe some number depending on dim of profileMatrix/colorMatrix
   //then say you found a certain kind of edge.
-   
+  return found;
 }
 
 
@@ -111,6 +21,8 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
   //will set the parallell entry in detectedEdges of both pixels to some positive number
   
   //threshold for gitpixelDiff
+  //like the idea of this being some value ralative to picture I'm looking at
+  //so pictures with a high color/darkness conformity will get lower thresholds, while more varying images will get higher ones. 
   int param = 12;
 
   int rows = prof->source->rows;
@@ -121,6 +33,9 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
       detectedEdges[c][r] = 0;
     }
   }
+
+  //this loop, goes through and compares adjacent pixels
+  
   int testC, testR, testNumber;
   myColor* current, *compare;
   for (int colIndex = 0; colIndex < cols; colIndex++) {
@@ -165,33 +80,172 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
 }
 
 
-edges* findEdges(int filledDiff[][], profileMatrix* prof) {
+edges* findEdges(int **filledDiff, profileMatrix* prof) {
+  //takes a diff matrix(filled by fillDiffMatrix)
+  //tries to group non-zero entry in matrix to certain edges
+  
   edges* foundEdges = initEdges();
-  int row, col, ratio, rowMax, colMax;
-  rowMax = prof->source->row;
-  colMax = prof->source->col;
-  ratio = rowMax / colMax;
-
+  int row, col, rowMax, colMax, rowDim, colDim;
+  rowDim = prof->source->rows;
+  colDim = prof->source->cols;
+  
+  
   //going to need to be some coordination between where I'm initializing indexes
   //and how advanceEdgeCheck changes them
   //standard, start in the upper left sides. having forward slash start in upper right
-  edgeCheck checkType = topCheck;
 
-  int sumHits = 0;
+  //calculate topEdge score
+  edgeCheck checkType = topCheck;
+  float edgeScore = 0;
   int numRuns = 0;
+  
   row = 0;
   col = 0;
+  rowMax = row;
+  colMax = colDim;
   while (row < rowMax || col < colMax) {
-    
-    //look at nearby cells
-    checkForDiffs(foundEdges, checkType);
-    sumHits += advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
     numRuns++;
   }
-  int edgeScore = sumHits/numRuns;
+  edgeScore = edgeScore/numRuns;
+  foundEdges->top = edgeScore;
+
+  
+  checkType = bottomCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = rowDim;
+  col = 0;
+  rowMax = row;
+  colMax = colDim;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->bottom = edgeScore;
+
+
+  checkType = leftCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = 0;
+  col = 0;
+  rowMax = rowDim;
+  colMax = col;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->left = edgeScore;
+
+    
+  checkType = rightCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = 0;
+  col = colDim;
+  rowMax = rowDim;
+  colMax = col;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->right = edgeScore;
+
+
+  checkType = tableCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = rowDim / 2;
+  col = 0;
+  rowMax = row;
+  colMax = colDim;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->table = edgeScore;
+
+
+  checkType = poleCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = 0;
+  col = colDim / 2;
+  rowMax = rowDim;
+  colMax = col;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->pole = edgeScore;
+
+
+  //have a problem that applies to my diagnol lines
+  //both of them have some start at a max, and an end at a zero
+  //this kills my while conditions, and also conditions within advance check.
+  //well just modify the conditions when working with diagnols.
+  //that or use absolue values?. either way
+  //wait no there both positive, that does not work
+  //just change your conditionals. Pretty sure it's only a problem here
+  //in checkForEdges, 
+
+  checkType = forwardCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = 0;
+  col = colDim;
+  rowMax = rowDim;
+  colMax = 0;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->forward = edgeScore;
+
+
+  checkType = backwardCheck;
+  edgeScore = 0;
+  numRuns = 0;
+  
+  row = 0;
+  col = 0;
+  rowMax = rowDim;
+  colMax = colDim;
+  while (row < rowMax || col < colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
+    numRuns++;
+  }
+  edgeScore = edgeScore/numRuns;
+  foundEdges->backward = edgeScore;
+    
+  return foundEdges;
 }
 
-int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int colDim,  edgeCheck whichCheck) {
+float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int rowDim, int colDim,  edgeCheck whichCheck) {
+  //bit of an odd thing, have to add a new parameter pair
+  //have row/col dim, which are useful for getting aspect raio of diff, used in diagnol bits
+  //also need a row/col end value, for when to end the search. Generally these aren't the same. 
   //general idea, at cell [row][col], performing edgeCheck whichCheck
   //based on that, check cells within some radius and see if there are edges.
  
@@ -226,18 +280,18 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 
 
   int checkRadius;
+  //sets/paird of checkradius for specific edges
   int topBottomRads = (rowDim / 4) + 1;
   int leftRightRads = (colDim / 4) + 1;
   //diag rads, kind of complicated. 
   int diagRadsVert = (colDim / 2) + 1;
-  //int diagRadsHorz = (rowDim / 2) + 1;
+  int diagRadsHorz = (rowDim / 2) + 1;
 
   switch(whichCheck) {
   case topCheck:
     checkRadius = topBottomRads;
     for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
       if (diff[col][row + rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -251,7 +305,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     checkRadius = topBottomRads;
     for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
       if (diff[col][row - rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -265,7 +318,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     checkRadius = leftRightRads;
     for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
       if (diff[col + colOffset][row] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -279,7 +331,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     checkRadius = leftRightRads;
     for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
       if (diff[col - colOffset][row] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -293,7 +344,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     checkRadius = topBottomRads;
     for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
       if (diff[col][row - rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -302,7 +352,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 	missWeight *= missDecay;
       }
       if (diff[col][row + rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -316,7 +365,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     checkRadius = leftRightRads;
     for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
       if (diff[col - colOffset][row] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -325,7 +373,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 	missWeight *= missDecay;
       }
       if (diff[col + colOffset][row] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -336,19 +383,16 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
     }
     
     break;
-  case forwardCheck:
-
-    //sligtly like this better than doing horizontal/vertical,
-    //I believe there is some double counting going on however.
-    //wait I did this wrong. right now I'm tracing out diagnol path flipped across y dim.
-    //want to instead be checking in a path that's orthogonal to diagnol.
-    //I believe that means I just flip all the cols with rows in the iterating bits of code
-    
+  case forwardCheck:;
     //diagnol checking
+    //trace out a line that is orthagonal to diagnol line
+    //current way is same as how I advanceEdgeCheck for diagnol edges
+    //just have the controlling ratio inverted.
     int ratio = colDim / rowDim;
+    int rowOffset = 0;
+    int colOffset = 0;
     while (rowOffset < diagRadsVert || colOffset < diagRadsHorz) {
       if (diff[col - colOffset][row - rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -357,7 +401,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 	missWeight *= missDecay;
       }
       if (diff[col + colOffset][row + rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
       }
@@ -365,7 +408,6 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 	edgeMisses += missWeight * missAmount;
 	missWeight *= missDecay;
       }
-      //does a similar diagnol search, similar to how I do advanceEdgeCheck for diags.
       if (rowOffset == 0) {
 	rowOffset++;
       }
@@ -373,7 +415,7 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
 	rowOffset++;
       }
       else if (rowOffset >= diagRadsVert) {
-	colOffset++
+	colOffset++;
 	  }
       else if (colOffset / rowOffset > ratio) {
 	rowOffset++;
@@ -381,59 +423,63 @@ int checkForDiffs(edges* edges, int diff[][],  int row, int col, int rowDim, int
       else {
 	colOffset++;
       }
-    
-    break;
-  case backwardCheck:
-    
-    //diagnol checking
-    int ratio = colDim / rowDim;
-    while (rowOffset < diagRadsVert || colOffset < diagRadsHorz) {
-      if (diff[col + colOffset][row - rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      if (diff[col - colOffset][row + rowOffset] != 0) {
-	//found what might be an edge, maybe break loop idk
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      //does a similar diagnol search, similar to how I do advanceEdgeCheck for diags.
-      if (rowOffset == 0) {
-	rowOffset++;
-      }
-      else if (colOffset >= diagRadsHorz) {
-	rowOffset++;
-      }
-      else if (rowOffset >= diagRadsVert) {
-	colOffset++
-	  }
-      else if (colOffset / rowOffset > ratio) {
-	rowOffset++;
-      }
-      else {
-	colOffset++;
-      }
-    }
-    break;
-  case default:
+      break;
+    case backwardCheck:;    
+      //diagnol checking
+      //checks from top left to bottom right
+      int ratio = colDim / rowDim;
+      int rowOffset = 0;
+      int colOffset = 0;
+      while (rowOffset < diagRadsVert || colOffset < diagRadsHorz) {
+	if (diff[col + colOffset][row - rowOffset] != 0) {
+	  edgeHits += hitWeight * hitAmount;
+	  hitWeight *= hitDecay;
+	}
+	else {
+	  edgeMisses += missWeight * missAmount;
+	  missWeight *= missDecay;
+	}
+	if (diff[col - colOffset][row + rowOffset] != 0) {
+	  edgeHits += hitWeight * hitAmount;
+	  hitWeight *= hitDecay;
+	}
+	else {
+	  edgeMisses += missWeight * missAmount;
+	  missWeight *= missDecay;
+	}
 
-    break;
+	if (rowOffset == 0) {
+	  rowOffset++;
+	}
+	else if (colOffset >= diagRadsHorz) {
+	  rowOffset++;
+	}
+	else if (rowOffset >= diagRadsVert) {
+	  colOffset++;
+	    }
+	else if (colOffset / rowOffset > ratio) {
+	  rowOffset++;
+	}
+	else {
+	  colOffset++;
+	}
+      }
       
-  }
+      break;
+    default:
+      
+      break;
+      
+    }
   
+  }
+  return hitAmount / missAmount;
 }
 
 void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whichCheck) {
+  //iterates row/col indexs by one to follow along an edge given by whichCheck 
   //absoulutely brain numbing stuff
+  //check out checkForEdge, near 200 lines of for loops in a switch
   int ratio = rowMax / colMax;
   switch(whichCheck) {
   case topCheck:
@@ -446,7 +492,7 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
     (*row)++;
     break;
   case rightCheck:
-    (*row)++
+    (*row)++;
     break;
   case tableCheck:
     //ditto
@@ -466,16 +512,16 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
     //or just run it through the same code for backward check, then colIndex = colMax - colIndex
 
     //copy of backCheck
-    if (col == 0) {
+    if (*col == 0) {
       (*col)++;
     }
-    else if (row >= rowMax) {
+    else if (*row >= rowMax) {
       (*col)++;
     }
-    else if (col >= colMax) {
+    else if (*col >= colMax) {
       (*row)++;
     }
-    else if (row / col > ratio) {
+    else if (*row / *col > ratio) {
       (*col)++;
     }
     else {
@@ -489,23 +535,23 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
   case backwardCheck:
     //does backward check, from top left to bottom right.
     //col/row start both at zero
-    if (col == 0) {
+    if (*col == 0) {
       (*col)++;
     }
-    else if (row >= rowMax) {
+    else if (*row >= rowMax) {
       (*col)++;
     }
-    else if (col >= colMax) {
+    else if (*col >= colMax) {
       (*row)++;
     }
-    else if (row / col > ratio) {
+    else if (*row / *col > ratio) {
       (*col)++;
     }
     else {
       (*row)++;
     }
     break;  
-  case default:
+  default:
 
     break;
       
@@ -514,54 +560,6 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
 
 edges* initEdges() {
   edges* new = malloc(sizeof(edges));
-  new = {.top = 0, .bottom = 0, .left = 0, .right = 0, .left = 0, .table = 0, .pole = 0, .forward = 0, .backward = 0};
+  *new = (edges){.top = 0, .bottom = 0, .left = 0, .right = 0, .left = 0, .table = 0, .pole = 0, .forward = 0, .backward = 0};
   return new;
-}
-
-//taken from http://sdl.beuc.net/sdl.wiki/Pixel_Access
-uint32 getpixel(SDL_Surface *surface, int x, int y)
-{
-    int bpp = surface->format->BytesPerPixel;
-    /* Here p is the address to the pixel we want to retrieve */
-    uint8 *p = (uint8 *)surface->pixels + y * surface->pitch + x * bpp;
-
-    switch(bpp) {
-    case 1:
-        return *p;
-        break;
-
-    case 2:
-        return *(uint16 *)p;
-        break;
-
-    case 3:
-        if(SDL_BYTEORDER == SDL_BIG_ENDIAN)
-            return p[0] << 16 | p[1] << 8 | p[2];
-        else
-            return p[0] | p[1] << 8 | p[2] << 16;
-        break;
-
-    case 4:
-        return *(uint32 *)p;
-        break;
-
-    default:
-        return 0;       /* shouldn't happen, but avoids warnings */
-    }
-}
-
-SDL_Color* uint32ToColor(Uint32 rgba) {
-  myColor* color = malloc(sizeof(myColor));
-  int r,g,b,a, br,bg,bb,ba, sr, sg, sb, sa;
-  int mask = 0xff;
-  //bytemask for each component
-  sr = 24;
-  sg = 16;
-  sb = 8;
-  sa = 0;
-  
-  r = ((mask << sr) | rgba) >> sr;
-  g = ((mask << sg) | rgba) >> sg;
-  b = ((mask << sb) | rgba) >> sb;
-  a = ((mask << sa) | rgba) >> sa;
 }
