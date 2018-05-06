@@ -15,11 +15,28 @@ struct {
 } colorMatrix;
 
 
+//rough stuff for edge detection
+typedef
+struct {
+  float top;
+  float bottom;
+  float left;
+  float right;
+  float table;
+  float pole;
+  float forward;
+  float backward;
+
+} edges;
+
+typedef enum {  topCheck,  bottomCheck, leftCheck, rightCheck, tableCheck, poleCheck, forwardCheck, backwardCheck} edgeCheck;
+
 typedef
 struct {
   int rows;
   int cols;
   //float instead?
+  edges* edgeScores;
   int *** cells;
   colorMatrix* source;
 } profileMatrix;
@@ -71,21 +88,7 @@ struct {
 //Imagemagick also has some stuff. used that a bit for primitive file conversion
 //those are the only 2 I know really. 
 
-//rough stuff for edge detection
-typedef
-struct {
-  float top;
-  float bottom;
-  float left;
-  float right;
-  float table;
-  float pole;
-  float forward;
-  float backward;
 
-} edges;
-
-typedef enum {  topCheck,  bottomCheck, leftCheck, rightCheck, tableCheck, poleCheck, forwardCheck, backwardCheck} edgeCheck;
 
 
 //kind of discrepencany in naming scheme. col/row max indicates dimension of profile matrix
@@ -118,13 +121,20 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof);
 //given a profile, will generate a reductive representation of edges within picture
 edges* findEdges(int ** filledDiff, profileMatrix* prof);
 
-//will look around vicinity of edge, calculating misses/hits of edges
-//then return a ratio between hits/miss amount
-float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int rowDim, int colDim,  edgeCheck whichCheck);
+//will look around vicinity of cell, calculating misses/hits of edges
+//then return an edge score, 
+float checkForEdge(int **diff, int row, int col, int rowDim, int colDim,  edgeCheck whichCheck);
 
-  void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whichCheck);
+void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whichCheck);
 
- edges* initEdges();
+char* closestCharToProfile(profileMatrix* subSect, character** charSet);
+
+float compareProfiles(profileMatrix* p1, profileMatrix* p2);
+
+float compareEdges(edges* e1, edges* e2);
+
+
+edges* initEdges();
 
 myColor* getPixel(colorMatrix*, int, int);
 

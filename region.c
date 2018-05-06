@@ -1,15 +1,28 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
 #include "region.h"
 
-edges * detectEdge(profileMatrix* prof) {
+//as buggy as this is likely to be
+//think I have all the function I want to write
+//given a profileMatrix, I have functions to generate an edges struct
+//then find a closest match to a char within a charset.
+
+//next up, have to handle the bigger picture stuff
+//getting a picture read in to begin with
+//dividing picture into sections, generating colorMatrix
+//sticking that in a profile matrix, calling generate edges
+//then also do all of that for rasters of whatever characters I want
+//sticking those into some array
+//then calling  closestCharToProfile for every section of image
+
+
+edges * generateEdges(profileMatrix* prof) {
   //int detectedEdges[prof->source->cols][prof->source->rows];
   int** detectedDiffs = NULL;
   fillDiffMatrix(detectedDiffs, prof);
   edges* found = findEdges(detectedDiffs, prof);
-    //anyways, as long as I'm only considering a reduced set of edges to idenfiy, could just have several different for loops that walk across the array, sush as diagonally, and checking if cells within a certain array are flipped.
-  //so, walk down some imaginary line in array. have another parameter for for far to look from line for deteced edges. good to have parameter be relative to dim of profile
-  //keep track of how many edges within boundary along line were detected, if thats above another parameter(or maybe some number depending on dim of profileMatrix/colorMatrix
-  //then say you found a certain kind of edge.
+  prof->edgeScores = found;
   return found;
 }
 
@@ -24,6 +37,10 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
   //like the idea of this being some value ralative to picture I'm looking at
   //so pictures with a high color/darkness conformity will get lower thresholds, while more varying images will get higher ones. 
   int param = 12;
+  //had idea for param. Do the same traversal as when i compare to the param, but instead keep a cumulative sum of compare values
+  //then divide by number of comparision, and you have an average comparision result.
+  //could either set this average by going through the entire image and having a global param
+  //or do it in params and have each param have it's own average. 
 
   int rows = prof->source->rows;
   int cols = prof->source->cols;
@@ -94,117 +111,94 @@ edges* findEdges(int **filledDiff, profileMatrix* prof) {
   //and how advanceEdgeCheck changes them
   //standard, start in the upper left sides. having forward slash start in upper right
 
-  //calculate topEdge score
   edgeCheck checkType = topCheck;
   float edgeScore = 0;
   int numRuns = 0;
-  
-  row = 0;
-  col = 0;
-  rowMax = row;
-  colMax = colDim;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
+  while(checkType != forwardCheck) {
+    if (checkType == topCheck) {
+      row = 0;
+      col = 0;
+      rowMax = row;
+      colMax = colDim;
+    }
+    else if (checkType == bottomCheck) {
+      row = rowDim;
+      col = 0;
+      rowMax = row;
+      colMax = colDim;
+    }
+    else if (checkType == leftCheck) {
+      row = 0;
+      col = 0;
+      rowMax = rowDim;
+      colMax = col;
+    }
+    else if (checkType == rightCheck) {
+      row = 0;
+      col = colDim;
+      rowMax = rowDim;
+      colMax = col;
+    }
+    else if (checkType == tableCheck) {
+      row = rowDim / 2;
+      col = 0;
+      rowMax = row;
+      colMax = colDim;
+    }
+    else if (checkType == poleCheck) {
+      row = 0;
+      col = colDim / 2;
+      rowMax = rowDim;
+      colMax = col;
+    }
+    else if (checkType == backwardCheck) {
+      row = 0;
+      col = 0;
+      rowMax = rowDim;
+      colMax = colDim;
+    }
+    while (row < rowMax || col < colMax) {
+      edgeScore += checkForEdge(filledDiff, row, col, rowDim, colDim,  checkType);
+      advanceEdgeCheck(&row, &col, rowDim, colDim, checkType);
+      numRuns++;
+    }
+    edgeScore = edgeScore/numRuns;
+    if (checkType == topCheck) {
+      foundEdges->top = edgeScore;
+      checkType = bottomCheck;
+    }
+    else if (checkType == bottomCheck) {
+      foundEdges->bottom = edgeScore;
+      checkType = leftCheck;
+    }
+    else if (checkType == leftCheck) {
+      foundEdges->left = edgeScore;
+      checkType = rightCheck;
+    }
+    else if (checkType == rightCheck) {
+      foundEdges->right = edgeScore;
+      checkType = tableCheck;
+    }
+    else if (checkType == tableCheck) {
+      foundEdges->table = edgeScore;
+      checkType = poleCheck;
+    }
+    else if (checkType == poleCheck) {
+      foundEdges->pole = edgeScore;
+      checkType = backwardCheck;
+    }
+    else if (checkType == backwardCheck) {
+      foundEdges->backward = edgeScore;
+      checkType = forwardCheck;
+    }
+    edgeScore = 0;
+    numRuns = 0;    
   }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->top = edgeScore;
-
   
-  checkType = bottomCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = rowDim;
-  col = 0;
-  rowMax = row;
-  colMax = colDim;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->bottom = edgeScore;
-
-
-  checkType = leftCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = 0;
-  col = 0;
-  rowMax = rowDim;
-  colMax = col;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->left = edgeScore;
-
-    
-  checkType = rightCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = 0;
-  col = colDim;
-  rowMax = rowDim;
-  colMax = col;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->right = edgeScore;
-
-
-  checkType = tableCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = rowDim / 2;
-  col = 0;
-  rowMax = row;
-  colMax = colDim;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->table = edgeScore;
-
-
-  checkType = poleCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = 0;
-  col = colDim / 2;
-  rowMax = rowDim;
-  colMax = col;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->pole = edgeScore;
-
-
-  //have a problem that applies to my diagnol lines
-  //both of them have some start at a max, and an end at a zero
-  //this kills my while conditions, and also conditions within advance check.
-  //well just modify the conditions when working with diagnols.
-  //that or use absolue values?. either way
-  //wait no there both positive, that does not work
-  //just change your conditionals. Pretty sure it's only a problem here
-  //in checkForEdges, 
+  //forward check is special, because it's starting colPosition is greater than it's end position.
+  //so I can't put it in the loop, because I'd change the while conditional.
+  //could have the col = -colDim, then when in checkForEdge hand in abs(colDim)
+  //kind of goofy though 
 
   checkType = forwardCheck;
   edgeScore = 0;
@@ -214,52 +208,25 @@ edges* findEdges(int **filledDiff, profileMatrix* prof) {
   col = colDim;
   rowMax = rowDim;
   colMax = 0;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
+  //while (row < rowMax || col < colMax) {
+  while (row < rowMax || col >= colMax) {
+    edgeScore += checkForEdge(filledDiff, row, col, rowDim, colDim,  checkType);
     advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
     numRuns++;
   }
   edgeScore = edgeScore/numRuns;
   foundEdges->forward = edgeScore;
-
-
-  checkType = backwardCheck;
-  edgeScore = 0;
-  numRuns = 0;
   
-  row = 0;
-  col = 0;
-  rowMax = rowDim;
-  colMax = colDim;
-  while (row < rowMax || col < colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowMax, colMax, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->backward = edgeScore;
+
     
   return foundEdges;
 }
 
-float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int rowDim, int colDim,  edgeCheck whichCheck) {
-  //bit of an odd thing, have to add a new parameter pair
-  //have row/col dim, which are useful for getting aspect raio of diff, used in diagnol bits
-  //also need a row/col end value, for when to end the search. Generally these aren't the same. 
-  //general idea, at cell [row][col], performing edgeCheck whichCheck
-  //based on that, check cells within some radius and see if there are edges.
- 
-
-  //having fun times trying to determine criteria for how to detect edges.
-  //If I just count number of hits in diff within a radius, potentially all the hits are grouped in a spot
-  //have successive hits be worth less than the previouse one(reset once checking a new row/col
-  //that and/or have hits farther away from original cell be worth less.
- 
-  //one way of returning things, just keep some cumulative score throughout run
-  //then have that be returned. have caller add that to some other cumulative score, and keep track of number of times checkForDiffs was called
-  //then can find an average foundDiffs per run of loop, which should be some indication of wheather an edge was found.
-
-  
+float checkForEdge(int **diff, int row, int col, int rowDim, int colDim,  edgeCheck whichCheck) {
+  //checks for edges along a line roughly orthogonal to the edge whichCheck
+  //general idea, have a decay, so successive hits/missess are worth less
+  //attempting to prevent case of a strong grouping of diffs in matrix in a corner
+  //giving a high/low  edge score. 
   float edgeHits = 0;
   float edgeMisses = 0;
 
@@ -280,10 +247,10 @@ float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int row
 
 
   int checkRadius;
-  //sets/paird of checkradius for specific edges
+  //sets/pairs of checkradius for specific edges
   int topBottomRads = (rowDim / 4) + 1;
   int leftRightRads = (colDim / 4) + 1;
-  //diag rads, kind of complicated. 
+  //diag rads, they get two because of reasons
   int diagRadsVert = (colDim / 2) + 1;
   int diagRadsHorz = (rowDim / 2) + 1;
 
@@ -447,7 +414,7 @@ float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int row
 	  edgeMisses += missWeight * missAmount;
 	  missWeight *= missDecay;
 	}
-
+	//just copied code from forward check
 	if (rowOffset == 0) {
 	  rowOffset++;
 	}
@@ -476,11 +443,9 @@ float checkForEdge(int **diff, int row, int col, int rowMax, int colMax, int row
   return hitAmount / missAmount;
 }
 
-void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whichCheck) {
+void advanceEdgeCheck(int* row, int* col, int rowDim, int colDim, edgeCheck whichCheck) {
   //iterates row/col indexs by one to follow along an edge given by whichCheck 
-  //absoulutely brain numbing stuff
-  //check out checkForEdge, near 200 lines of for loops in a switch
-  int ratio = rowMax / colMax;
+  float ratio = (float)rowDim / colDim;
   switch(whichCheck) {
   case topCheck:
     (*col)++;
@@ -507,29 +472,26 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
     break;
   case forwardCheck:
     //does forward check, from top right to bottom left.
-    //col = colMax, row = 0;
     //two approaches, could either to complicated stuff
     //or just run it through the same code for backward check, then colIndex = colMax - colIndex
-
-    //copy of backCheck
-    if (*col == 0) {
-      (*col)++;
+    //wait no, colIndex = colDim - colIndex;
+    //that will not work either, on repeated calls it'd just do stupid things
+    if (*col == colDim) {
+      (*col)--;
     }
-    else if (*row >= rowMax) {
-      (*col)++;
+    else if (*row >= rowDim) {
+      (*col)--;
     }
-    else if (*col >= colMax) {
+    else if (*col <= 0) {
       (*row)++;
     }
-    else if (*row / *col > ratio) {
-      (*col)++;
+    else if ((float)*row / (colDim - *col)  > ratio) {
+      (*col)--;
     }
     else {
       (*row)++;
     }
-    //that's it
 
-    *col = colMax - *col;
 
     break;
   case backwardCheck:
@@ -538,13 +500,13 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
     if (*col == 0) {
       (*col)++;
     }
-    else if (*row >= rowMax) {
+    else if (*row >= rowDim) {
       (*col)++;
     }
-    else if (*col >= colMax) {
+    else if (*col >= colDim) {
       (*row)++;
     }
-    else if (*row / *col > ratio) {
+    else if ((float)*row / *col > ratio) {
       (*col)++;
     }
     else {
@@ -556,6 +518,64 @@ void advanceEdgeCheck(int* row, int* col, int rowMax, int colMax, edgeCheck whic
     break;
       
   }
+}
+
+char* closestCharToProfile(profileMatrix* subSect, character** charSet) {
+  int index = 0;
+  float score;
+  float min = -1;
+  character* match = NULL;
+  while(charSet[index] != NULL) {
+    score = compareProfiles(subSect, charSet[index]->profile);
+    if (score < min || match == NULL) {
+      min = score;
+      match = charSet[index];
+    }
+    index++;
+  }
+  if (match == NULL) {
+    printf("segfaults inbound because no match\n");
+  }
+  return &(match->character);
+}
+
+float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
+  float score = compareEdges(p1->edgeScores, p2->edgeScores);
+  //also do something with darkness/lightness averages
+
+
+  return score;
+}
+
+float compareEdges(edges* e1, edges* e2) {
+  //will see how this work. 
+  float delta = 0;
+  float f1, f2;
+  f1 = e1->top;
+  f2 = e2->top;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->bottom;
+  f2 = e2->bottom;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->left;
+  f2 = e2->left;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->right;
+  f2 = e2->right;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->table;
+  f2 = e2->table;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->pole;
+  f2 = e2->pole;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->forward;
+  f2 = e2->forward;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  f1 = e1->backward;
+  f2 = e2->backward;
+  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
+  return delta;
 }
 
 edges* initEdges() {
