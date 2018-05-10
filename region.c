@@ -8,18 +8,64 @@
 //given a profileMatrix, I have functions to generate an edges struct
 //then find a closest match to a char within a charset.
 
-//next up, have to handle the bigger picture stuff
-//getting a picture read in to begin with
-//dividing picture into sections, generating colorMatrix
-//sticking that in a profile matrix, calling generate edges
-//then also do all of that for rasters of whatever characters I want
-//sticking those into some array
-//then calling  closestCharToProfile for every section of image
-
 //had a more compact idea how to check edges
 //generally have some special traverse function, which takes a start, end, *current position
 //will traverse/iterate current position from start to end in a straight-ish line
 //because right now I have about 2--300 lines of boiler plate loops
+void traverse(int startx, int starty, int* curx, int* cury, int endx, int endy) {
+  //ratios, using y/x
+  int controlRatio;
+  int currentRatio;
+  int changex = 0;
+  int changey = 0;
+  if (curx != endx && cury != endy) {
+    if (*curx < endx) {
+      changex = 1;
+    }
+    else if (*curx > endx) {
+      changex = -1;
+    }
+    if (*cury < endy) {
+      changey = 1;
+    }
+    else if (*cury > endy) {
+      changey = -1;
+    }
+    
+    if (*curx == endx) {
+      *cury += 1 * changey;
+    }
+    else if (*cury == endy) {
+      *curx += 1 * changex;
+    }
+    else {
+      if (*curx == startx) {
+	*curx += 1 * changex;
+      }
+      else {
+	controlRatio = abs(endy - starty) / abs(endx - startx);
+	currentRatio = abs(*cury - starty)/ abs(*curx - starx );
+	if (controlRatio > currentRatio) {
+	  cury += 1 * changey;
+	}
+	else {
+	  curx += 1 * changex;
+	}
+      }
+      
+    }
+  }
+  else {
+    //already at end
+    
+  }
+}
+
+void orthogonalTraverse(int startx, int starty, int px, int py, int* curx, int* cury, int endx, int endy) {
+  //would be nice to have a function to travel orthogonally to a line at a point
+  //would be nearly the same as the regular traversal
+  //would just be swapping the changey += statements with changex+= I think. 
+}
 
 
 edges * generateEdges(profileMatrix* prof) {
