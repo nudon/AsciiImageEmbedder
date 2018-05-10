@@ -16,6 +16,11 @@
 //sticking those into some array
 //then calling  closestCharToProfile for every section of image
 
+//had a more compact idea how to check edges
+//generally have some special traverse function, which takes a start, end, *current position
+//will traverse/iterate current position from start to end in a straight-ish line
+//because right now I have about 2--300 lines of boiler plate loops
+
 
 edges * generateEdges(profileMatrix* prof) {
   //int detectedEdges[prof->source->cols][prof->source->rows];
