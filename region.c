@@ -12,74 +12,121 @@
 //generally have some special traverse function, which takes a start, end, *current position
 //will traverse/iterate current position from start to end in a straight-ish line
 //because right now I have about 2--300 lines of boiler plate loops
-void traverse(int startx, int starty, int* curx, int* cury, int endx, int endy) {
-  //ratios, using y/x
-  int controlRatio;
-  int currentRatio;
-  int changex = 0;
-  int changey = 0;
-  if (curx != endx && cury != endy) {
-    if (*curx < endx) {
-      changex = 1;
+
+int diffParam;
+
+int diffYes;
+int diffNo;
+int diffErr;
+
+void setDiffParam(int new) {
+  diffParam = new;
+}
+
+intMatrix* createIntMatrix(profileMatrix* prof) {
+  intMatrix* new = malloc(sizeof(intMatrix));
+  new->cols = prof->cols;
+  new->rows = prof->rows;
+  new->ints = malloc(sizeof(int*) * new->cols);
+  for(int colIndex = 0; colIndex < new->cols; colIndex++) {
+    new->ints[colIndex] = malloc(sizeof(int) * new->rows);
+    for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
+      new->ints[colIndex][rowIndex] = 0;
     }
-    else if (*curx > endx) {
-      changex = -1;
-    }
-    if (*cury < endy) {
-      changey = 1;
-    }
-    else if (*cury > endy) {
-      changey = -1;
-    }
-    
-    if (*curx == endx) {
-      *cury += 1 * changey;
-    }
-    else if (*cury == endy) {
-      *curx += 1 * changex;
-    }
-    else {
-      if (*curx == startx) {
-	*curx += 1 * changex;
-      }
-      else {
-	controlRatio = abs(endy - starty) / abs(endx - startx);
-	currentRatio = abs(*cury - starty)/ abs(*curx - starx );
-	if (controlRatio > currentRatio) {
-	  cury += 1 * changey;
-	}
-	else {
-	  curx += 1 * changex;
-	}
-      }
+  }
+  return new;
+}
+
+
+int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
+  if (col > diffMatrix->cols || col > diffMatrix->rows) {
+    return diffErr;;
+  }
+  else {
+    return diffMatrix->ints[col][row];
+  }
+}
+
+void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
+  if (col > diffMatrix->cols || col > diffMatrix->rows) {
+    fprintf(stderr, "Index out of bound\n");
+  }
+  else {
+    diffMatrix->ints[col][row] = val;
+  }
+}
+
+myColor* newColor() {
+  myColor* new = malloc(sizeof(myColor));
+  *new = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
+  return new;
+}
+
+colorMatrix* newColorMatrix(int rows, int cols) {
+  colorMatrix* new = malloc(sizeof(colorMatrix));
+  new->rows = rows;
+  new->cols = cols;
+  new->cells = malloc(sizeof(myColor**) * cols);
+  for(int colIndex = 0; colIndex < cols; colIndex++) {
+    new->cells[colIndex] = malloc(sizeof(myColor*) * rows);
+    for(int rowIndex =0; rowIndex < rows; rowIndex++) {
+      new->cells[colIndex][rowIndex] = newColor();
       
     }
   }
+  return new;
+}
+
+void setColor(colorMatrix* matrix, int row, int col, myColor* tobe) {
+  if (row < matrix->rows && col < matrix->cols) {
+    cloneColor(matrix->cells[col][row], tobe);
+  }
   else {
-    //already at end
-    
+    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
   }
 }
 
-void orthogonalTraverse(int startx, int starty, int px, int py, int* curx, int* cury, int endx, int endy) {
-  //would be nice to have a function to travel orthogonally to a line at a point
-  //would be nearly the same as the regular traversal
-  //would just be swapping the changey += statements with changex+= I think. 
+myColor* getColor(colorMatrix* matrix, int row, int col) {
+  if (row < matrix->rows && col < matrix->cols) {
+    return matrix->cells[col][row];
+  }
+  else {
+    return NULL;
+  }
 }
 
+int getPixelDif(myColor* c1, myColor* c2) {
+  //what would be a good method for this
+  //want to prioritize lightness more than hue more than saturation.
+  int difference = 0;
+  int scaleAmount = 10;
+  difference = (int)fabs(c1->lightness - c2->lightness);
+  difference *= scaleAmount;
+  difference += (int)fabs(c1->hue - c2->hue);
+  difference *= scaleAmount;
+  difference += (int)fabs(c1->sat - c2->sat);
 
-edges * generateEdges(profileMatrix* prof) {
-  //int detectedEdges[prof->source->cols][prof->source->rows];
-  int** detectedDiffs = NULL;
-  fillDiffMatrix(detectedDiffs, prof);
-  edges* found = findEdges(detectedDiffs, prof);
-  prof->edgeScores = found;
-  return found;
+  return difference;
+  
 }
 
+void cloneColor(myColor* dest, myColor* src) {
+  //copy value of fields in src to dest
+  *dest = *src;
+}
 
+profileMatrix* newProfileMatrix(colorMatrix* colors) {
+  profileMatrix* new = malloc(sizeof(profileMatrix));
+  new->source = colors;
+  new->rows = colors->rows;
+  new->cols = colors->cols;
+  return new;
+}
 
-void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
+void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof) {
+  //quantamly entagled with averageCompareResults
+  //lab equipment indicates that if there is a bug in this function, there is a bug in the other as well
+  
   //given a profileMatrix, will go through the colorMatrix
   //comparing adjacent pixels. it the difference is large enough
   //will set the parallell entry in detectedEdges of both pixels to some positive number
@@ -87,7 +134,7 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
   //threshold for gitpixelDiff
   //like the idea of this being some value ralative to picture I'm looking at
   //so pictures with a high color/darkness conformity will get lower thresholds, while more varying images will get higher ones. 
-  int param = 12;
+  int param = diffParam;
   //had idea for param. Do the same traversal as when i compare to the param, but instead keep a cumulative sum of compare values
   //then divide by number of comparision, and you have an average comparision result.
   //could either set this average by going through the entire image and having a global param
@@ -95,20 +142,11 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
 
   int rows = prof->source->rows;
   int cols = prof->source->cols;
-  //int detectedEdges[cols][rows];
-  for (int c = 0; c < cols; c++) {
-    for (int r = 0; r < rows; r++) {
-      detectedEdges[c][r] = 0;
-    }
-  }
-
-  //this loop, goes through and compares adjacent pixels
-  
   int testC, testR, testNumber;
   myColor* current, *compare;
   for (int colIndex = 0; colIndex < cols; colIndex++) {
     for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-      current = getPixel(prof->source, colIndex, rowIndex);
+      current = getColor(prof->source, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
 	if (testNumber == 1) {
@@ -119,27 +157,24 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
 	else if (testNumber == 2) {
 	  //pixel diagnol bottom right
 	  testR = rowIndex + 1;
-	  compare = getPixel(prof->source, testC, testR);
 	}
 	else if (testNumber == 3) {
 	  //pixel below
 	  testC = colIndex;
-	  compare = getPixel(prof->source, testC, testR);
 	}
 	else if (testNumber == 4) {
 	  //pixel diagnol bottom left
 	  testC = colIndex - 1;
-	  compare = getPixel(prof->source, testC, testR);
 	  //...
 	  //don't set to zero,  I increment testNumber 
 	  testNumber = -10;
 	}
-	compare = getPixel(prof->source, testC, testR);
+  	compare = getColor(prof->source, testC, testR);
 	//eventually...
 	if (compare != NULL && getPixelDif(current, compare) > param) {
 	  //detect edge
-	  detectedEdges[colIndex][rowIndex] = 1;
-	  detectedEdges[testC][testR] = 1;
+	  setDiffAtIndex(detectedEdges,colIndex,rowIndex, 1);
+	  setDiffAtIndex(detectedEdges,testC,testR, 1);
 	}
 	testNumber++;
       }            
@@ -148,69 +183,99 @@ void fillDiffMatrix(int **detectedEdges, profileMatrix* prof) {
 }
 
 
-edges* findEdges(int **filledDiff, profileMatrix* prof) {
-  //takes a diff matrix(filled by fillDiffMatrix)
-  //tries to group non-zero entry in matrix to certain edges
-  
+char* matchProfileToChar(profileMatrix* prof,  character** charSet) {
+  //given a profileMatrix with a color matrix, will generate a diff matrix
+  //then generate an edge scores based on diff matrix
+  //then find a closest match to a character in charSet
+  if (prof->diff == NULL) {
+    intMatrix* diff = createIntMatrix(prof);
+    prof->diff = diff;
+    if (prof->source != NULL) {
+      fillDiffMatrix(diff, prof);
+    }
+    else {
+      printf("Error, given a profile with no colorMatrix\n");
+      return NULL;
+    }
+  }
+  if (prof->edgeScores == NULL) {
+    edges* foundEdges = betterPopulateEdges(prof);
+    prof->edgeScores = foundEdges;
+  }
+  return closestCharToProfile(prof, charSet);
+}
+
+edges* betterPopulateEdges(profileMatrix* prof) {
+  //given a profile with diffs
+  //will carry out multiple traversals and orthogonal traversals
+  //co calculate and assign edgeScores
+  intMatrix* diffMatrix = prof->diff;
   edges* foundEdges = initEdges();
-  int row, col, rowMax, colMax, rowDim, colDim;
+  float edgeScore;
+  edgeCheck checkType = topCheck;
+  int colStart, rowStart, colEnd, rowEnd, colDim, rowDim;
+
   rowDim = prof->source->rows;
   colDim = prof->source->cols;
   
-  
-  //going to need to be some coordination between where I'm initializing indexes
-  //and how advanceEdgeCheck changes them
-  //standard, start in the upper left sides. having forward slash start in upper right
-
-  edgeCheck checkType = topCheck;
-  float edgeScore = 0;
-  int numRuns = 0;
-  while(checkType != forwardCheck) {
+  while(checkType != doneChecking) {
     if (checkType == topCheck) {
-      row = 0;
-      col = 0;
-      rowMax = row;
-      colMax = colDim;
+      rowStart = 0;
+      colStart = 0;
+      rowEnd = rowStart;
+      colEnd = colDim;
     }
     else if (checkType == bottomCheck) {
-      row = rowDim;
-      col = 0;
-      rowMax = row;
-      colMax = colDim;
+      rowStart = rowDim;
+      colStart = 0;
+      rowEnd = rowStart;
+      colEnd = colDim;
     }
     else if (checkType == leftCheck) {
-      row = 0;
-      col = 0;
-      rowMax = rowDim;
-      colMax = col;
+      rowStart = 0;
+      colStart = 0;
+      rowEnd = rowDim;
+      colEnd = colStart;
     }
     else if (checkType == rightCheck) {
-      row = 0;
-      col = colDim;
-      rowMax = rowDim;
-      colMax = col;
+      rowStart = 0;
+      colStart = colDim;
+      rowEnd = rowDim;
+      colEnd = colStart;
     }
     else if (checkType == tableCheck) {
-      row = rowDim / 2;
-      col = 0;
-      rowMax = row;
-      colMax = colDim;
+      rowStart = rowDim / 2;
+      colStart = 0;
+      rowEnd = rowStart;
+      colEnd = colDim;
     }
     else if (checkType == poleCheck) {
-      row = 0;
-      col = colDim / 2;
-      rowMax = rowDim;
-      colMax = col;
+      rowStart = 0;
+      colStart = colDim / 2;
+      rowEnd = rowDim;
+      colEnd = colStart;
     }
     else if (checkType == backwardCheck) {
-      row = 0;
-      col = 0;
-      rowMax = rowDim;
-      colMax = colDim;
+      rowStart = 0;
+      colStart = 0;
+      rowEnd = rowDim;
+      colEnd = colDim;
     }
-    while (row < rowMax || col < colMax) {
-      edgeScore += checkForEdge(filledDiff, row, col, rowDim, colDim,  checkType);
-      advanceEdgeCheck(&row, &col, rowDim, colDim, checkType);
+    else if (checkType == forwardCheck) {
+      rowStart = 0;
+      colStart = colDim;
+      rowEnd = rowDim;
+      colEnd = 0;
+    }
+    int colOff = 0;
+    int rowOff = 0;
+    int colCur;
+    int rowCur;
+    int numRuns = 0;
+    while(traverse(colStart, rowStart, &colOff, &rowOff, colEnd, rowEnd) != 1) {
+      colCur = colStart + colOff;
+      rowCur = rowStart + rowOff;
+      edgeScore += betterGenerateEdgeScore(diffMatrix, colCur, rowCur, colDim, rowDim, checkType);
       numRuns++;
     }
     edgeScore = edgeScore/numRuns;
@@ -242,42 +307,24 @@ edges* findEdges(int **filledDiff, profileMatrix* prof) {
       foundEdges->backward = edgeScore;
       checkType = forwardCheck;
     }
-    edgeScore = 0;
-    numRuns = 0;    
+    else if (checkType == forwardCheck) {
+      foundEdges->forward = edgeScore;
+      checkType = doneChecking;
+    }
   }
-  
-  //forward check is special, because it's starting colPosition is greater than it's end position.
-  //so I can't put it in the loop, because I'd change the while conditional.
-  //could have the col = -colDim, then when in checkForEdge hand in abs(colDim)
-  //kind of goofy though 
-
-  checkType = forwardCheck;
-  edgeScore = 0;
-  numRuns = 0;
-  
-  row = 0;
-  col = colDim;
-  rowMax = rowDim;
-  colMax = 0;
-  //while (row < rowMax || col < colMax) {
-  while (row < rowMax || col >= colMax) {
-    edgeScore += checkForEdge(filledDiff, row, col, rowDim, colDim,  checkType);
-    advanceEdgeCheck(&row, &col, rowMax, colMax, checkType);
-    numRuns++;
-  }
-  edgeScore = edgeScore/numRuns;
-  foundEdges->forward = edgeScore;
-  
-
-    
   return foundEdges;
 }
 
-float checkForEdge(int **diff, int row, int col, int rowDim, int colDim,  edgeCheck whichCheck) {
-  //checks for edges along a line roughly orthogonal to the edge whichCheck
-  //general idea, have a decay, so successive hits/missess are worth less
-  //attempting to prevent case of a strong grouping of diffs in matrix in a corner
-  //giving a high/low  edge score. 
+float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int colDim, int rowDim, edgeCheck whichCheck) {
+  //given a cur index, carries out a roughly orthogonal traversal
+  //and computes a result based on number of 1's and 0's in diffMatrix
+  
+  //beyond that, maybe have a distanceFromCurrent decay
+  //would have to plan it so when both orthOffsets near the checkRads
+  //the decay would be some fixed number, like .1
+  //so decay is proportional to distance of rectangle
+  //not the number of loops
+
   float edgeHits = 0;
   float edgeMisses = 0;
 
@@ -286,292 +333,175 @@ float checkForEdge(int **diff, int row, int col, int rowDim, int colDim,  edgeCh
 
   float hitWeight = 1;
   float missWeight = 1;
-
-
-  //on successive (as in, multiple within a loop) hits,
-  // weight *= decay
-  //was also toying with the idea of making things less the greater offset got.
-  //would need to do something like offDecay = (checkRadius - offset);
-  //then have weight *= decay * offDecay
   float hitDecay = .75;
   float missDecay = .60;
 
+  int rowOrthOff = 0;
+  int colOrthOff = 0;
+  
+  int colCheckRad;
+  int rowCheckRad;
 
-  int checkRadius;
-  //sets/pairs of checkradius for specific edges
-  int topBottomRads = (rowDim / 4) + 1;
-  int leftRightRads = (colDim / 4) + 1;
-  //diag rads, they get two because of reasons
-  int diagRadsVert = (colDim / 2) + 1;
-  int diagRadsHorz = (rowDim / 2) + 1;
+  int diff;
+  //stands for both out of bound
+  //could of called it BOOB
+  int bothOOB;
+  if (whichCheck == topCheck ||whichCheck ==  bottomCheck ||whichCheck ==  tableCheck) {
+    colCheckRad = (colDim / 4) + 1;
+    rowCheckRad = 0;
+  }
+  else if (whichCheck == leftCheck || whichCheck == rightCheck || whichCheck == poleCheck) {
+    colCheckRad = 0;
+    rowCheckRad = (rowDim / 4) + 1;
+  }
+  else if (whichCheck == forwardCheck || whichCheck == backwardCheck) {
+    //some concern here
+    //potentially ratios could be super skewed
+    //in which case I basically check entire array for diffs
+    //might be okay, 2 reasons
+    //first, most font aspect ratios are about .5, so using dim / 4 should work
+    //second, if fonr ratio was super odd, like .1,
+    //then there would be little distinction between diagnols and straight lines anyways
+    colCheckRad = (colDim / 4) + 1;
+    rowCheckRad = (rowDim / 4) + 1;
+  }
 
-  switch(whichCheck) {
-  case topCheck:
-    checkRadius = topBottomRads;
-    for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
-      if (diff[col][row + rowOffset] != 0) {
+
+  while(orthogonalTraverse(colCur, rowCur,
+			   &colOrthOff, &rowOrthOff, 
+			   colCur + colCheckRad, rowCur + rowCheckRad) != 1
+	&& bothOOB != 2){
+    bothOOB = 0;
+    diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);
+    if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
     }
-    break;
-  case bottomCheck:
-    checkRadius = topBottomRads;
-    for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
-      if (diff[col][row - rowOffset] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
+    else if (diff == diffNo){
 	edgeMisses += missWeight * missAmount;
 	missWeight *= missDecay;
-      }
     }
-    break;
-  case leftCheck:
-    checkRadius = leftRightRads;
-    for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
-      if (diff[col + colOffset][row] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
+    else if (diff == diffErr) {
+      bothOOB++;
     }
-    break;
-  case rightCheck:
-    checkRadius = leftRightRads;
-    for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
-      if (diff[col - colOffset][row] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-    }
-    break;
-  case tableCheck:
-    checkRadius = topBottomRads;
-    for(int rowOffset = 0; rowOffset < checkRadius; rowOffset++) {
-      if (diff[col][row - rowOffset] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      if (diff[col][row + rowOffset] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-    }
-    break;
-  case poleCheck:
-    checkRadius = leftRightRads;
-    for(int colOffset = 0; colOffset < checkRadius; colOffset++) {
-      if (diff[col - colOffset][row] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      if (diff[col + colOffset][row] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
+    else {
+      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
     
-    break;
-  case forwardCheck:;
-    //diagnol checking
-    //trace out a line that is orthagonal to diagnol line
-    //current way is same as how I advanceEdgeCheck for diagnol edges
-    //just have the controlling ratio inverted.
-    int ratio = colDim / rowDim;
-    int rowOffset = 0;
-    int colOffset = 0;
-    while (rowOffset < diagRadsVert || colOffset < diagRadsHorz) {
-      if (diff[col - colOffset][row - rowOffset] != 0) {
+    diff = getDiffAtIndex(diffMatrix,colCur - colOrthOff,rowCur - rowOrthOff);
+    if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount;
 	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      if (diff[col + colOffset][row + rowOffset] != 0) {
-	edgeHits += hitWeight * hitAmount;
-	hitWeight *= hitDecay;
-      }
-      else {
-	edgeMisses += missWeight * missAmount;
-	missWeight *= missDecay;
-      }
-      if (rowOffset == 0) {
-	rowOffset++;
-      }
-      else if (colOffset >= diagRadsHorz) {
-	rowOffset++;
-      }
-      else if (rowOffset >= diagRadsVert) {
-	colOffset++;
-	  }
-      else if (colOffset / rowOffset > ratio) {
-	rowOffset++;
-      }
-      else {
-	colOffset++;
-      }
-      break;
-    case backwardCheck:;    
-      //diagnol checking
-      //checks from top left to bottom right
-      int ratio = colDim / rowDim;
-      int rowOffset = 0;
-      int colOffset = 0;
-      while (rowOffset < diagRadsVert || colOffset < diagRadsHorz) {
-	if (diff[col + colOffset][row - rowOffset] != 0) {
-	  edgeHits += hitWeight * hitAmount;
-	  hitWeight *= hitDecay;
-	}
-	else {
-	  edgeMisses += missWeight * missAmount;
-	  missWeight *= missDecay;
-	}
-	if (diff[col - colOffset][row + rowOffset] != 0) {
-	  edgeHits += hitWeight * hitAmount;
-	  hitWeight *= hitDecay;
-	}
-	else {
-	  edgeMisses += missWeight * missAmount;
-	  missWeight *= missDecay;
-	}
-	//just copied code from forward check
-	if (rowOffset == 0) {
-	  rowOffset++;
-	}
-	else if (colOffset >= diagRadsHorz) {
-	  rowOffset++;
-	}
-	else if (rowOffset >= diagRadsVert) {
-	  colOffset++;
-	    }
-	else if (colOffset / rowOffset > ratio) {
-	  rowOffset++;
-	}
-	else {
-	  colOffset++;
-	}
-      }
-      
-      break;
-    default:
-      
-      break;
-      
     }
+    else if (diff == diffNo){
+	edgeMisses += missWeight * missAmount;
+	missWeight *= missDecay;
+    }
+    else if (diff == diffErr) {
+      bothOOB++;
+    }
+    else {
+      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
+    }
+  }
+  return edgeHits / edgeMisses;
+}
+
+
+int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
+  //given a start, current, and end position
+  //while carry out a single step of a traversal from start to end
+  //returns 1 when done with traversal
+  //ratios, using y/x
+  int ret;
+  float controlRatio;
+  float currentRatio;
+  int changex = 0;
+  int changey = 0;
+  int curx = startx + *offx;
+  int cury = starty + *offy;
+  if (curx != endx && cury != endy) {
+    if (curx < endx) {
+      changex = 1;
+    }
+    else if (curx > endx) {
+      changex = -1;
+    }
+    if (cury < endy) {
+      changey = 1;
+    }
+    else if (cury > endy) {
+      changey = -1;
+    }
+    
+    if (curx == endx) {
+      *offy += 1 * changey;
+    }
+    else if (cury == endy) {
+      *offx += 1 * changex;
+    }
+    else {
+      if (curx == startx) {
+	*offx += 1 * changex;
+      }
+      else {
+	controlRatio = (float)abs(endy - starty) / abs(endx - startx);
+	currentRatio = (float)abs(*offy)/ abs(*offx);
+	if (controlRatio > currentRatio) {
+	  *offy += 1 * changey;
+	}
+	else {
+	  *offx += 1 * changex;
+	}
+      }
+    }
+    ret = 0;
+  }
+  else {
+    //already at end
+    ret = 1;
+  }
+  return ret;
+}
+
+int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
+  //given a start, current, and end position
+  //will carry out a single step of a path roughly orthogonal to path from start to end
+  //first, transform current cords
+  //flip components, negate y
+  int ret;
+  int curx = startx + *offx;
+  int cury = starty + *offy;
+  int transx = cury;
+  int transy = curx * -1;
+  //throw into traverse
+ 
+  ret = traverse(startx, starty, &transx, &transy, endx, endy);
+
+  // then negate y, flip components
+  transy *= -1;
+  curx = transy;
+  cury = transx;
   
-  }
-  return hitAmount / missAmount;
+  *offx = curx - startx;
+  *offy = cury - starty;
+  //voila
+  
+  //just running through a rotation matrix of 90 degrees
+  //
+  // | cosθ, -sinθ |
+  // | sinθ, cosθ  |
+  //since I'm only rotating 90 degrees, don't need sin or cos really
+  //just
+  //
+  // | 0, -1 |
+  // | 1,  0 |
+
+  return ret;
 }
-
-void advanceEdgeCheck(int* row, int* col, int rowDim, int colDim, edgeCheck whichCheck) {
-  //iterates row/col indexs by one to follow along an edge given by whichCheck 
-  float ratio = (float)rowDim / colDim;
-  switch(whichCheck) {
-  case topCheck:
-    (*col)++;
-    break;
-  case bottomCheck:
-    (*col)++;
-    break;
-  case leftCheck:
-    (*row)++;
-    break;
-  case rightCheck:
-    (*row)++;
-    break;
-  case tableCheck:
-    //ditto
-    (*col)++;
-
-    break;
-  case poleCheck:
-    //start in top middleish
-    //really simple advance
-    (*row)++;
-
-    break;
-  case forwardCheck:
-    //does forward check, from top right to bottom left.
-    //two approaches, could either to complicated stuff
-    //or just run it through the same code for backward check, then colIndex = colMax - colIndex
-    //wait no, colIndex = colDim - colIndex;
-    //that will not work either, on repeated calls it'd just do stupid things
-    if (*col == colDim) {
-      (*col)--;
-    }
-    else if (*row >= rowDim) {
-      (*col)--;
-    }
-    else if (*col <= 0) {
-      (*row)++;
-    }
-    else if ((float)*row / (colDim - *col)  > ratio) {
-      (*col)--;
-    }
-    else {
-      (*row)++;
-    }
-
-
-    break;
-  case backwardCheck:
-    //does backward check, from top left to bottom right.
-    //col/row start both at zero
-    if (*col == 0) {
-      (*col)++;
-    }
-    else if (*row >= rowDim) {
-      (*col)++;
-    }
-    else if (*col >= colDim) {
-      (*row)++;
-    }
-    else if ((float)*row / *col > ratio) {
-      (*col)++;
-    }
-    else {
-      (*row)++;
-    }
-    break;  
-  default:
-
-    break;
-      
-  }
-}
-
-char* closestCharToProfile(profileMatrix* subSect, character** charSet) {
+ 
+char* closestCharToProfile(profileMatrix* subSect,  character** charSet) {
+  //given a profile, finds a closest match to a profile found in charSet
   int index = 0;
   float score;
   float min = -1;

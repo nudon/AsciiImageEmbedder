@@ -1,4 +1,7 @@
+#include <stdlib.h>
 #include <stdio.h>
+//uinsg #include <wand/MagickWand.h> wasn't working
+#include <ImageMagick-7/MagickWand/MagickWand.h>
 #include "region.h"
 
 //next up, have to handle the bigger picture stuff
@@ -9,7 +12,34 @@
 //sticking those into some array
 //then calling  closestCharToProfile for every section of image
 
-void main(int argc, char * argv[]) {
+//think I got some rough code for everything but reading and generating profiles of characters
+//ideally I don't have to manaully rip individual characters as images
+//ideally I just pick a font, and some function will scan in everything.
+//seems like imageMagick had some base text-writing features
+//would use that to open up some temp file
+//clear screen, draw the character
+//analyze region & build profile
+//then repeat on a different character
+//uses the drawAnotation, which is restricted to to taking chars as input
+//looked at drawSetTextEncoding, which if called with "UTF-8" as arg
+//expects input to be in form of unicode-bit-sequences.
+//also apparantly one can type \xyz and that escapes as unicode
+//also would seem that I have to use monospace font, If I actually want to have recognizable output textno
+
+//also, just realized that I'm not accounting for the spaces between lines or characters.
+//might not matter, if they do would have to do some more calculations. Essentially find out how big those gaps are
+//then keep that in mind when tiling the original picture into subregions. 
+double diffThreshHold;
+
+void imgConvInit();
+
+void imgConvClose();
+
+colorMatrix* readFileIntoColorMatrix(char* fileName);
+
+double averageCompareResults(colorMatrix* colors);
+
+int main(int argc, char * argv[]) {
   char* fileName;
   char* fontToUse;
 
@@ -30,11 +60,12 @@ void main(int argc, char * argv[]) {
 
     image* pic = malloc(sizeof(image));
     //load file name using whatever image library I'm using
-
+    
     //figure out how to tile the image using regions of aspect ratio == font
     //likely going to have some hanging/excess.
     // regionWidth = something
     // regionHeight = something
+    
     
     //how to scale the image up/down for good tiling?
     //just have iterative ideas for scaling image up enough to tile ImgX % fontX == 0
@@ -52,6 +83,10 @@ void main(int argc, char * argv[]) {
       }
  
     }
+
+    //will probably load rescaled image?
+    colorMatrix* entireImage = readFileIntoColorMatrix(fileName);
+    setDiffParam(averageCompareResults(entireImage));
     //set imageWidth/height to new values
     //if it doesn't work then just treat the excess region as something special
     //such that it won't show up as any edge
@@ -73,17 +108,28 @@ void main(int argc, char * argv[]) {
 	    //grab pixel at (x = ((regx - 1) * regionWidth) + subx,
 	    //               y = ((regy - 1) * regionHeight) + suby)
 	    //store in aColor
-	    aColor = NULL;
+	    aColor = getColor(entireImage,
+			      (regy - 1) * regionHeight + suby,
+			      (regx - 1) * regionWidth + subx);
+			      
 	    //copy into region
 	    setColor(regionColors, subx, suby, aColor);
 	    
 	  }
 	}
-	aProfile = newProfile(regionColors);
+	aProfile = newProfileMatrix(regionColors);
 	pic->profiles[regy][regx] = aProfile;
       }
     }
-
+    char val;
+    for(int regy = 1; regy * regionHeight <= imageHeight; regy++) {
+      for(int regx = 1; regx * regionWidth <= imageWidth; regx++) {
+	val = closestCharToProfile(pic->profiles[regy][regx], NULL);
+	printf("%c", val);
+      }
+      printf("\n");
+    }
+	
     //then send profiles to fillDiffMatrix
     //then send DiffMatrix and profile to findEdges
     //then hand edge to closestCharToProfile
@@ -92,58 +138,97 @@ void main(int argc, char * argv[]) {
   }
   else {
     //not enough args
-    fprintf(stderr, "Give a file name");
+    fprintf(stderr, "Give a file name\n");
   }
 }
 
-myColor* newColor() {
-  myColor* new = malloc(sizeof(myColor));
 
-  return new;
+
+
+void imgConvInit() {
+  MagickWandGenesis();
 }
 
-colorMatrix* newMatrix(int rows, int cols) {
-  colorMatrix* new = malloc(sizeof(colorMatrix));
-  new->rows = rows;
-  new->cols = cols;
-  new->cells = malloc(sizeof(myColor**) * cols);
-  for(int colIndex = 0; colIndex < cols; colIndex++) {
-    new->cells[colIndex] = malloc(sizeof(myColor*) * rows);
-    for(int rowIndex =0; rowIndex < rows; rowIndex++) {
-      new->cells[colIndex][rowIndex] = newColor();
-      
+void imgConvClose() {
+  MagickWandTerminus();
+}
+
+
+colorMatrix* readFileIntoColorMatrix(char* fileName) {
+  MagickWand* birch = NewMagickWand();
+  PixelWand* aPixel;
+  MagickSetFirstIterator(birch);
+  MagickReadImage(birch, fileName);
+
+  int height = (int)MagickGetImageHeight(birch);
+  int width = (int)MagickGetImageWidth(birch);
+  colorMatrix* colors = newColorMatrix(height, width);
+  myColor* color = newColor();
+  for(int colIndex = 0; colIndex < width; colIndex++) {
+    for(int rowIndex = 0; colIndex < height; rowIndex++) {
+      MagickGetImagePixelColor(birch, colIndex, rowIndex, aPixel);
+      PixelGetHSL(aPixel, &(color->hue), &(color->sat), &(color->lightness));
+      //unsure whether to use regular getColor or getColorQuantum
+      color->red = PixelGetRed(aPixel);
+      color->green = PixelGetGreen(aPixel);
+      color->blue =  PixelGetBlue(aPixel);
+      setColor(colors, rowIndex, colIndex, color);
     }
   }
-  return new;
+  free(color);
+  return colors;
 }
 
-void setColor(colorMatrix* matrix, int row, int col, myColor* tobe) {
-  if (row < matrix->rows && col < matrix->cols) {
-    cloneColor(matrix[col][row], tobe);
+double averageCompareResults(colorMatrix* colors) {
+
+  //basically copy-pasted code from fillDiffMatrix
+  //if there's any bugs in one, there's bugs in the other  
+  int rows = colors->rows;
+  int cols = colors->cols;
+    int testC, testR, testNumber;
+  myColor* current, *compare;
+  int results;
+  int numRuns;
+  for (int colIndex = 0; colIndex < cols; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      current = getColor(colors, colIndex, rowIndex);
+      testNumber = 1;
+      while(testNumber > 0) {
+	if (testNumber == 1) {
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	}
+	else if (testNumber == 2) {
+	  //pixel diagnol bottom right
+	  testR = rowIndex + 1;
+	}
+	else if (testNumber == 3) {
+	  //pixel below
+	  testC = colIndex;
+	}
+	else if (testNumber == 4) {
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  //...
+	  //don't set to zero,  I increment testNumber 
+	  testNumber = -10;
+	}
+	compare = getColor(colors, testC, testR);
+	//eventually...
+	if (compare != NULL) {
+	  results = getPixelDif(current, compare);
+	  numRuns++;
+	}
+	testNumber++;
+      }            
+    }
   }
-  else {
-    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
-  }
+  return results/numRuns;
 }
 
-void cloneColor(myColor* dest, myColor* src) {
-  //copy value of fields in src to dest
-}
 
-void newProfileMatrix(colorMatrix* colors) {
-  profileMatrix* new = malloc(sizeof(profileMatrix));
-  new->source = colors;
-  new->rows = colors->rows;
-  new->cols = colors->cols;
+character* makecharacter(char value) {
+  character* new = malloc(sizeof(character));
   
-  new->cells = malloc(sizeof(int**) * cols);
-  for(int colIndex = 0; colIndex < cols; colIndex++) {
-    new->cells[colIndex] = malloc(sizeof(int*) * rows);
-    for(int rowIndex =0; rowIndex < rows; rowIndex++) {
-      new->cells[colIndex][rowIndex] = malloc(sizeof(int));
-      //
-      *(new->cells[colIndex][rowIndex]) = 0;
-    }
-  }
-  return new;
 }
