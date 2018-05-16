@@ -57,7 +57,9 @@ struct {
 //things for each character 
 typedef
 struct {
-  char character;
+  //may either point to an ascii character
+  //or a multi-byte unicode codepoint
+  char* charVal;
   //some vector format of character?
   //or maybe a large enough raster?
   //maybe not as fields, but I need those one way or another
@@ -73,6 +75,8 @@ struct {
   int width;
   int height;
   //matrix ***?
+  int numberOfRegionCols;
+  int numberOfRegionRows;
   profileMatrix*** profiles;
   char*** filledChars;
 } image;
@@ -132,26 +136,26 @@ int getDiffAtIndex(intMatrix* diffMatrix, int col, int row);
 void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val);
 
 myColor* newColor();
-colorMatrix* newColorMatrix(int rows, int cols);
+colorMatrix* newColorMatrix(int cols, int rows);
 void setColor(colorMatrix* matrix, int row, int col, myColor* tobe);
-myColor* getColor(colorMatrix* matrix, int row, int col);
+myColor* getColor(colorMatrix* matrix, int col, int row);
 void cloneColor(myColor* dest, myColor* src);
+int getPixelDif(myColor* c1, myColor* c2);
 
 profileMatrix* newProfileMatrix(colorMatrix* colors);
 
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 
-char* matchProfileToChar(profileMatrix* prof,  character** charSet);
+character* matchProfileToCharacter(profileMatrix* prof,  character** charSet);
 
 edges* betterPopulateEdges(profileMatrix* prof);
 
 float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int colDim, int rowDim, edgeCheck whichCheck);
 
-void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof);
+character* newCharacter();
 
- 
-char* closestCharToProfile(profileMatrix* subSect,  character** charSet);
+void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof);
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2);
 

@@ -19,6 +19,8 @@ int diffYes;
 int diffNo;
 int diffErr;
 
+static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet);
+
 void setDiffParam(int new) {
   diffParam = new;
 }
@@ -51,6 +53,7 @@ void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
   if (col > diffMatrix->cols || col > diffMatrix->rows) {
     fprintf(stderr, "Index out of bound\n");
   }
+
   else {
     diffMatrix->ints[col][row] = val;
   }
@@ -62,33 +65,32 @@ myColor* newColor() {
   return new;
 }
 
-colorMatrix* newColorMatrix(int rows, int cols) {
+colorMatrix* newColorMatrix(int cols, int rows) {
   colorMatrix* new = malloc(sizeof(colorMatrix));
   new->rows = rows;
   new->cols = cols;
-  new->cells = malloc(sizeof(myColor**) * cols);
-  for(int colIndex = 0; colIndex < cols; colIndex++) {
-    new->cells[colIndex] = malloc(sizeof(myColor*) * rows);
-    for(int rowIndex =0; rowIndex < rows; rowIndex++) {
-      new->cells[colIndex][rowIndex] = newColor();
-      
+  new->cells = malloc(sizeof(myColor**) * rows);
+  for(int rowIndex =0; rowIndex < rows; rowIndex++) {
+    new->cells[rowIndex] = malloc(sizeof(myColor*) * cols);
+    for(int colIndex = 0; colIndex < cols; colIndex++) {
+      new->cells[rowIndex][colIndex] = newColor();      
     }
   }
   return new;
 }
 
-void setColor(colorMatrix* matrix, int row, int col, myColor* tobe) {
+void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
   if (row < matrix->rows && col < matrix->cols) {
-    cloneColor(matrix->cells[col][row], tobe);
+    cloneColor(matrix->cells[row][col], tobe);
   }
   else {
     fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
   }
 }
 
-myColor* getColor(colorMatrix* matrix, int row, int col) {
+myColor* getColor(colorMatrix* matrix, int col, int row) {
   if (row < matrix->rows && col < matrix->cols) {
-    return matrix->cells[col][row];
+    return matrix->cells[row][col];
   }
   else {
     return NULL;
@@ -183,7 +185,7 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof) {
 }
 
 
-char* matchProfileToChar(profileMatrix* prof,  character** charSet) {
+character* matchProfileToCharacter(profileMatrix* prof,  character** charSet) {
   //given a profileMatrix with a color matrix, will generate a diff matrix
   //then generate an edge scores based on diff matrix
   //then find a closest match to a character in charSet
@@ -202,7 +204,7 @@ char* matchProfileToChar(profileMatrix* prof,  character** charSet) {
     edges* foundEdges = betterPopulateEdges(prof);
     prof->edgeScores = foundEdges;
   }
-  return closestCharToProfile(prof, charSet);
+  return closestCharacterToProfile(prof, charSet);
 }
 
 edges* betterPopulateEdges(profileMatrix* prof) {
@@ -312,6 +314,7 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       checkType = doneChecking;
     }
   }
+  prof->edgeScores = foundEdges;
   return foundEdges;
 }
 
@@ -499,8 +502,8 @@ int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, 
 
   return ret;
 }
- 
-char* closestCharToProfile(profileMatrix* subSect,  character** charSet) {
+
+static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet) {
   //given a profile, finds a closest match to a profile found in charSet
   int index = 0;
   float score;
@@ -517,8 +520,15 @@ char* closestCharToProfile(profileMatrix* subSect,  character** charSet) {
   if (match == NULL) {
     printf("segfaults inbound because no match\n");
   }
-  return &(match->character);
+  return match;
 }
+
+
+character* newCharacter() {
+  character* new = malloc(sizeof(character));
+  return new; 
+}
+ 
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float score = compareEdges(p1->edgeScores, p2->edgeScores);
