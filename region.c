@@ -15,9 +15,9 @@
 
 int diffParam;
 
-int diffYes;
-int diffNo;
-int diffErr;
+int diffYes = 1;
+int diffNo = 0;
+int diffErr = -1;
 
 static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet);
 
@@ -41,7 +41,8 @@ intMatrix* createIntMatrix(profileMatrix* prof) {
 
 
 int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
-  if (col > diffMatrix->cols || col > diffMatrix->rows) {
+  if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
+      col < 0 || row < 0) {
     return diffErr;;
   }
   else {
@@ -89,7 +90,8 @@ void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
 }
 
 myColor* getColor(colorMatrix* matrix, int col, int row) {
-  if (row < matrix->rows && col < matrix->cols) {
+  if (row < matrix->rows && col < matrix->cols &&
+      row >= 0 && col >= 0) {
     return matrix->cells[row][col];
   }
   else {
@@ -102,12 +104,16 @@ int getPixelDif(myColor* c1, myColor* c2) {
   //want to prioritize lightness more than hue more than saturation.
   int difference = 0;
   int scaleAmount = 10;
-  difference = (int)fabs(c1->lightness - c2->lightness);
-  difference *= scaleAmount;
-  difference += (int)fabs(c1->hue - c2->hue);
-  difference *= scaleAmount;
-  difference += (int)fabs(c1->sat - c2->sat);
-
+  if (c1 != NULL && c2 != NULL) {
+    difference = (int)fabs(c1->lightness - c2->lightness);
+    difference *= scaleAmount;
+    difference += (int)fabs(c1->hue - c2->hue);
+    difference *= scaleAmount;
+    difference += (int)fabs(c1->sat - c2->sat);
+  }
+  else {
+    difference = 0;
+  }
   return difference;
   
 }
@@ -118,10 +124,13 @@ void cloneColor(myColor* dest, myColor* src) {
 }
 
 profileMatrix* newProfileMatrix(colorMatrix* colors) {
-  profileMatrix* new = malloc(sizeof(profileMatrix));
+  profileMatrix* new = NULL;
+  new = malloc(sizeof(profileMatrix));
   new->source = colors;
   new->rows = colors->rows;
   new->cols = colors->cols;
+  new->edgeScores = NULL;
+  new->diff = NULL;
   return new;
 }
 
@@ -146,6 +155,11 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof) {
   int cols = prof->source->cols;
   int testC, testR, testNumber;
   myColor* current, *compare;
+  for (int colIndex = 0; colIndex < cols; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
+    }
+  }
   for (int colIndex = 0; colIndex < cols; colIndex++) {
     for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
       current = getColor(prof->source, colIndex, rowIndex);
@@ -175,13 +189,16 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof) {
 	//eventually...
 	if (compare != NULL && getPixelDif(current, compare) > param) {
 	  //detect edge
-	  setDiffAtIndex(detectedEdges,colIndex,rowIndex, 1);
-	  setDiffAtIndex(detectedEdges,testC,testR, 1);
+	  setDiffAtIndex(detectedEdges,colIndex,rowIndex, diffYes);
+	  setDiffAtIndex(detectedEdges,testC,testR, diffYes);
 	}
 	testNumber++;
       }            
     }
-  } 
+  }
+  if (prof->diff == NULL) {
+    prof->diff = detectedEdges;
+  }
 }
 
 
@@ -216,9 +233,13 @@ edges* betterPopulateEdges(profileMatrix* prof) {
   float edgeScore;
   edgeCheck checkType = topCheck;
   int colStart, rowStart, colEnd, rowEnd, colDim, rowDim;
+  int colOff, rowOff, colCur, rowCur, numRuns;
 
-  rowDim = prof->source->rows;
-  colDim = prof->source->cols;
+  rowDim = prof->source->rows - 1;
+  colDim = prof->source->cols - 1;
+  //the -1 keeps traversal within matrix
+  //othersise one final check is done outside matrix
+  //not hits, no misses, returns 0/0, nan, which messes up cumulative score
   
   while(checkType != doneChecking) {
     if (checkType == topCheck) {
@@ -269,11 +290,10 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       rowEnd = rowDim;
       colEnd = 0;
     }
-    int colOff = 0;
-    int rowOff = 0;
-    int colCur;
-    int rowCur;
-    int numRuns = 0;
+    colOff = 0;
+    rowOff = 0;
+    numRuns = 0;
+    edgeScore = 0;
     while(traverse(colStart, rowStart, &colOff, &rowOff, colEnd, rowEnd) != 1) {
       colCur = colStart + colOff;
       rowCur = rowStart + rowOff;
@@ -423,7 +443,7 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   int changey = 0;
   int curx = startx + *offx;
   int cury = starty + *offy;
-  if (curx != endx && cury != endy) {
+  if (curx != endx || cury != endy) {
     if (curx < endx) {
       changex = 1;
     }
@@ -526,6 +546,8 @@ static character* closestCharacterToProfile(profileMatrix* subSect,  character**
 
 character* newCharacter() {
   character* new = malloc(sizeof(character));
+  new->charVal = NULL;
+  new->profile = NULL;
   return new; 
 }
  

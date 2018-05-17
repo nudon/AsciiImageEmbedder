@@ -83,35 +83,39 @@ int main(int argc, char * argv[]) {
   int regionWidth = fontWidth;
   int regionHeight = fontHeight;
   
-  
+  MagickBooleanType status;
   if (argc > 1) {
     fileName = argv[1];
     imgConvInit();
     //load file name using whatever image library I'm using
     MagickWand* birch = NewMagickWand();
     MagickSetFirstIterator(birch);
-    MagickReadImage(birch, fileName);
-    //figure out how to tile the image using regions of aspect ratio == font
-    //likely going to have some hanging/excess.
-    // regionWidth = something
-    // regionHeight = something
-    scaleImageToFitFont(birch, fontWidth, fontHeight);
-    imageWidth = (int)MagickGetImageWidth(birch);
-    imageHeight = (int)MagickGetImageHeight(birch);
+    status = MagickReadImage(birch, fileName);
+    if (status != MagickFalse) {
+      //figure out how to tile the image using regions of aspect ratio == font
+      //likely going to have some hanging/excess.
+      // regionWidth = something
+      // regionHeight = something
+      scaleImageToFitFont(birch, fontWidth, fontHeight);
+      imageWidth = (int)MagickGetImageWidth(birch);
+      imageHeight = (int)MagickGetImageHeight(birch);
 
-    //will probably load rescaled image?
-    colorMatrix* entireImage = readWandIntoColorMatrix(birch, NULL);
-    setDiffParam(averageCompareResults(entireImage));
-    int regionsx = imageWidth / regionWidth;
-    int regionsy = imageHeight / regionHeight;
-    image* pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
-    asciiUsed = 1;
-    character** characterSet = buildCharacterSet(fontToUse, fontWidth, fontHeight);
-    matchImageToCharacters(pic, characterSet);
-    imgConvClose();
+      //will probably load rescaled image?
+      colorMatrix* entireImage = readWandIntoColorMatrix(birch, NULL);
+      setDiffParam(averageCompareResults(entireImage));
+      int regionsx = imageWidth / regionWidth;
+      int regionsy = imageHeight / regionHeight;
+      image* pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
+      asciiUsed = 1;
+      character** characterSet = buildCharacterSet(fontToUse, fontWidth, fontHeight);
+      matchImageToCharacters(pic, characterSet);
+      imgConvClose();
+    }
+    else {
+      printf("Unable to open file %s\n", fileName);
+    }
   }
   else {
-    //not enough args
     fprintf(stderr, "Give a file name\n");
   }
   
@@ -124,35 +128,41 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
   //think it will eventually converge so both are true
   //but that's just a vague feeling
   int imageWidth, imageHeight, remainingWidth, remainingHeight;
- 
+  imageWidth = (int)MagickGetImageWidth(staff);
+  imageHeight = (int)MagickGetImageHeight(staff);
+  remainingWidth = (fontw - (imageWidth % fontw)) % fontw;
+  remainingHeight = (fonth - (imageHeight % fonth)) % fonth; 
   while(remainingHeight != 0 || remainingWidth != 0) {
     imageWidth = (int)MagickGetImageWidth(staff);
     imageHeight = (int)MagickGetImageHeight(staff);
-    remainingWidth = imageWidth % fontw;
-    remainingHeight = imageHeight % fonth;
+    remainingWidth = (fontw - (imageWidth % fontw)) % fontw;
+    remainingHeight = (fonth - (imageHeight % fonth)) % fonth; 
     if (remainingHeight != 0) {
       //scale image so new image height = imageHeight + remainingHeight
-      MagickScaleImage(staff, imageHeight, imageHeight + remainingHeight);
+      MagickScaleImage(staff, imageWidth, imageHeight + remainingHeight);
     }
-    if (remainingWidth != 0) {
+    else if (remainingWidth != 0) {
       //scale image so new width is width + rem width
-      MagickScaleImage(staff, imageWidth, imageWidth + remainingWidth);
+      MagickScaleImage(staff, imageWidth + remainingWidth, imageHeight);
     }
   }
+  MagickWriteImage(staff, "scaledThing.png");
 }
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight) {
   image* pic = malloc(sizeof(image));
   pic->numberOfRegionRows = regRows;
   pic->numberOfRegionCols = regCols;
-  profileMatrix* aProfile;
-  colorMatrix* regionColors;
-  myColor* aColor;
+  profileMatrix* aProfile = NULL;
+  colorMatrix* regionColors = NULL;
+  myColor* aColor = NULL;
   //then read pixels into myColor and divide picture into regions.
-  pic->profiles = malloc(sizeof(profileMatrix**) * regCols);
+  profileMatrix*** profiles = malloc(sizeof(profileMatrix*) * regRows);
+  pic->profiles = profiles;
   for(int regy = 1; regy <= regRows; regy++) {
-    pic->profiles[regy] = malloc(sizeof(profileMatrix*) * regRows);
+    pic->profiles[regy - 1] = malloc(sizeof(profileMatrix*) * regCols);
     for(int regx = 1; regx <= regCols; regx++) {
+      pic->profiles[regy - 1][regx - 1] = NULL;
       regionColors = newColorMatrix(regWidth, regHeight);
       for(int suby = 0; suby < regHeight; suby++) {
 	for(int subx = 0; subx < regWidth; subx++) {
@@ -166,7 +176,8 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
 	}
       }
       aProfile = newProfileMatrix(regionColors);
-      pic->profiles[regy][regx] = aProfile;
+      //this took a while to figure out
+      pic->profiles[regy - 1][regx - 1] = aProfile;
     }
   }
   return pic;
@@ -178,7 +189,7 @@ void matchImageToCharacters(image* pic, character** characterSet) {
   int regionRows = pic->numberOfRegionRows;
   for(int regy = 1; regy <= regionRows; regy++) {
     for(int regx = 1; regx <= regionCols; regx++) {
-      val = matchProfileToCharacter(pic->profiles[regy][regx], characterSet);
+      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1], characterSet);
       printf("%s", val->charVal);
     }
     printf("\n");
@@ -229,11 +240,21 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
 }
 
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color) {
+  //normalizeToNonnormalize
+  int ntn = 255;
+  //the get value return a normalized value (between 0-1)
+  //restore them to full size
   PixelGetHSL(aPixel, &(color->hue), &(color->sat), &(color->lightness));
   //unsure whether to use regular getColor or getColorQuantum
   color->red = PixelGetRed(aPixel);
   color->green = PixelGetGreen(aPixel);
   color->blue =  PixelGetBlue(aPixel);
+  color->hue *= ntn;
+  color->sat *= ntn;
+  color->lightness *= ntn;
+  color->red *= ntn;
+  color->green *= ntn;
+  color->blue *= ntn;
   //thats it
 }
 
@@ -292,58 +313,10 @@ character* makecharacter(char* value) {
   return new;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//don't know about imagemagick, but it's supprisingly hard to get printf to print my unicode strings from intToPFcode
-//has to deal with escape char I think. doing \%s with a valid unicode things doesn't handle converting the unicode
-//I beleive the \u actually get's converted or something in compile time. able to have a string "\u1234", which is different from "\\u1234"
-//yeah, in runtime the anoTemp is just disaplyed as a backtick
-//going into indicidual indicies it's just a wide character i think
-//nope, that'd be dumb. gdb prints them as '\342' or some shit
-//but I don't know how to interpret that. can print them as binary
-//and things match the binary code formats in fileformat.info
-//so work with that heavily. looks like I'll probably need some custom unicode struct
-//I don't really know, I need to figure out how imagemagick expects things to be done before I'd know. maybe I can just hand in char*'s
-//actually that'd be pretty nice. I'd just need to have the \u encoding of a character
-//declare the start indicies, just increment...
-//nope, would have to create some function or something for incrementin
-//maybe I could take the unicode, then shove it into a uint32.
-//take value of first thing, put into unit32, bitshift left a byte
-//repeat. then add one.
-//then using bitmasks shove bytes back into char* indicies.
-//brilliant
-
-//seems like imageMagick had some base text-writing features
-//draw the character
-//analyze region & build profile and character*
-//then repeat on a different character
-//uses the drawAnotation, which is restricted to to taking chars as input
-//looked at drawSetTextEncoding, which if called with "UTF-8" as arg
-//expects input to be in form of unicode-bit-sequences. might be as simple as \u12ab
-//doesn't actually specify format of what it expects, could try \u12ab, \12\ab, or \x12\xab. I don't know
-//anyway, output that to some temporary image, then build a profile. Wipe then draw next characters
-
-//got that done, now just need a good mechanism for specifying ranges of characters to use.
-//seems like a good Idea would be specifying some begining/ending indexs in unicode land
-//have those be ints, do some loops,
-
-//then eventually have some char[][], or some other representation. read hex conversion to those
-//and use those in utf8Things
-
-
-//have a solid foundation with this, only annoying thing it specifying which unicode ranges to use
-//probably just have
-
-//have some parameter indicate which sets to use
-//then when parsingInput set used to 1
-
-//could then go through all of my character sets
-//init some count = 0
-//if used is true, count += end - start + 1
-//at end, character* charSet = malloc(sizeof(character) * count)
-//then have some more ugly loops for reading in characters from different  sets
 
 character** buildCharacterSet(char* font, int fw, int fh) {
+  //based on the ascii/etc used variables, builds up a characterset
+  //from the used ranges of characters
   int size = 0;
   int index = 0;
    
@@ -356,7 +329,7 @@ character** buildCharacterSet(char* font, int fw, int fh) {
   if (katakanaUsed) {
     size += katakanaEnd - katakanaStart + 1;
   }
-  character** charSet = malloc(sizeof(character*) * size);
+  character** charSet = malloc(sizeof(character*) * size + 1);
   PixelWand* white = NewPixelWand();
   PixelSetColor(white, "white");
   MagickWand* hickory = NewMagickWand();
@@ -405,11 +378,14 @@ character** buildCharacterSet(char* font, int fw, int fh) {
       katakanaUsed = 0;
     }
   }
+  charSet[index] = NULL;
   return charSet;
 }
  
 
 character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, colorMatrix* charColors, int intCode) {
+  //takes a unicode, draws the glyph to an image provided by staff
+  //then will run other functions to build an edgescore
   //some cordinate to draw. ideally they are zero but I doubt they are
   int x, y;
   x = 0;
@@ -430,27 +406,15 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
 }
 
 
-int sizeOfPFCharCode = 12;
-
-char* intToPFUnicode(int intCode) {
-  //converts int to unicode for printing in printf
-  //usese format \u12343
-  char* charCode = malloc(sizeof(char) * sizeOfPFCharCode);
-  int index = 0;
-  //don;t actually do this
-  charCode[index++] = '\\';
-  charCode[index++] = 'u';
-  sprintf(charCode + index, "%4x", intCode);
-  return charCode;
-}
-
-
 int sizeOfIMCharCode = 12;
 
 char* intToIMUnicode(int intCode) {
   //not sure what it's expecting
   //so the shell scripting libraries took \x1234 or something
-  //that was also from 2008 and not using the magickWand api, so 
+  //that was also from 2008 and not using the magickWand api, so
+  //beleive it just wants a multi-byte character
+  //just carve up the ints into byte regions
+  //and shove those bytes into indicies in char*
   char* charCode = malloc(sizeof(char) * sizeOfIMCharCode);
   sprintf(charCode, "%x", intCode);
   return charCode;
