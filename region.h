@@ -78,7 +78,7 @@ struct {
   int numberOfRegionCols;
   int numberOfRegionRows;
   profileMatrix*** profiles;
-  char*** filledChars;
+  character*** filledCharacterss;
 } image;
 
 
