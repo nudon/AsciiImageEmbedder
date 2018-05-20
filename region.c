@@ -9,9 +9,8 @@
 //then find a closest match to a char within a charset.
 
 //had a more compact idea how to check edges
-//generally have some special traverse function, which takes a start, end, *current position
+//generally have some special traverse function, which takes a start, end, *offset
 //will traverse/iterate current position from start to end in a straight-ish line
-//because right now I have about 2--300 lines of boiler plate loops
 
 int diffParam;
 
@@ -19,125 +18,24 @@ int diffYes = 1;
 int diffNo = 0;
 int diffErr = -1;
 
+//so, fixed a lot of bugs
+//had a goof in orthogoal travers, was computing the current position and handing that in as offsets
+//caused premature ends
+//also, was never initializing bothOOb to zero, which also caused premature ends
+//still getting some odd scores of infinity, but it's looking nice besides that
+//If I could fix that, could feasibly have edge detection. 
+//yeah,just made my edge score be edgehits - edgeMisses instead of dividing
+//changed my compare function as well
+//actually kind of cool. now my program thinks everything looks like @ symbols.
+//cool as fuck that I am getting some output though.
+//still have to implement something for how dark/light a region is, then tweek things
+
 static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet);
 
 void setDiffParam(int new) {
   diffParam = new;
 }
-
-intMatrix* createIntMatrix(profileMatrix* prof) {
-  intMatrix* new = malloc(sizeof(intMatrix));
-  new->cols = prof->cols;
-  new->rows = prof->rows;
-  new->ints = malloc(sizeof(int*) * new->cols);
-  for(int colIndex = 0; colIndex < new->cols; colIndex++) {
-    new->ints[colIndex] = malloc(sizeof(int) * new->rows);
-    for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
-      new->ints[colIndex][rowIndex] = 0;
-    }
-  }
-  return new;
-}
-
-
-int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
-  if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
-      col < 0 || row < 0) {
-    return diffErr;;
-  }
-  else {
-    return diffMatrix->ints[col][row];
-  }
-}
-
-void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
-  if (col > diffMatrix->cols || col > diffMatrix->rows) {
-    fprintf(stderr, "Index out of bound\n");
-  }
-
-  else {
-    diffMatrix->ints[col][row] = val;
-  }
-}
-
-myColor* newColor() {
-  myColor* new = malloc(sizeof(myColor));
-  *new = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
-  return new;
-}
-
-colorMatrix* newColorMatrix(int cols, int rows) {
-  colorMatrix* new = malloc(sizeof(colorMatrix));
-  new->rows = rows;
-  new->cols = cols;
-  new->cells = malloc(sizeof(myColor**) * rows);
-  for(int rowIndex =0; rowIndex < rows; rowIndex++) {
-    new->cells[rowIndex] = malloc(sizeof(myColor*) * cols);
-    for(int colIndex = 0; colIndex < cols; colIndex++) {
-      new->cells[rowIndex][colIndex] = newColor();      
-    }
-  }
-  return new;
-}
-
-void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
-  if (row < matrix->rows && col < matrix->cols) {
-    cloneColor(matrix->cells[row][col], tobe);
-  }
-  else {
-    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
-  }
-}
-
-myColor* getColor(colorMatrix* matrix, int col, int row) {
-  if (row < matrix->rows && col < matrix->cols &&
-      row >= 0 && col >= 0) {
-    return matrix->cells[row][col];
-  }
-  else {
-    return NULL;
-  }
-}
-
-int getPixelDif(myColor* c1, myColor* c2) {
-  //what would be a good method for this
-  //want to prioritize lightness more than hue more than saturation.
-  int difference = 0;
-  int scaleAmount = 10;
-  if (c1 != NULL && c2 != NULL) {
-    difference = (int)fabs(c1->lightness - c2->lightness);
-    difference *= scaleAmount;
-    difference += (int)fabs(c1->hue - c2->hue);
-    difference *= scaleAmount;
-    difference += (int)fabs(c1->sat - c2->sat);
-  }
-  else {
-    difference = 0;
-  }
-  return difference;
-  
-}
-
-void cloneColor(myColor* dest, myColor* src) {
-  //copy value of fields in src to dest
-  *dest = *src;
-}
-
-profileMatrix* newProfileMatrix(colorMatrix* colors) {
-  profileMatrix* new = NULL;
-  new = malloc(sizeof(profileMatrix));
-  new->source = colors;
-  new->rows = colors->rows;
-  new->cols = colors->cols;
-  new->edgeScores = NULL;
-  new->diff = NULL;
-  return new;
-}
-
 void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof) {
-  //quantamly entagled with averageCompareResults
-  //lab equipment indicates that if there is a bug in this function, there is a bug in the other as well
-  
   //given a profileMatrix, will go through the colorMatrix
   //comparing adjacent pixels. it the difference is large enough
   //will set the parallell entry in detectedEdges of both pixels to some positive number
@@ -240,7 +138,7 @@ edges* betterPopulateEdges(profileMatrix* prof) {
   //the -1 keeps traversal within matrix
   //othersise one final check is done outside matrix
   //not hits, no misses, returns 0/0, nan, which messes up cumulative score
-  
+  printf("\nONTO A NEW PROFILE\n");
   while(checkType != doneChecking) {
     if (checkType == topCheck) {
       rowStart = 0;
@@ -301,6 +199,7 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       numRuns++;
     }
     edgeScore = edgeScore/numRuns;
+    printf("\n\n\n\n\nFinished edgeScore is %f\n\n\n\n", edgeScore);
     if (checkType == topCheck) {
       foundEdges->top = edgeScore;
       checkType = bottomCheck;
@@ -368,14 +267,19 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   int diff;
   //stands for both out of bound
   //could of called it BOOB
-  int bothOOB;
+  //you know what would be cool? if I initialized it to zero
+  int bothOOB = 0;
+
+
   if (whichCheck == topCheck ||whichCheck ==  bottomCheck ||whichCheck ==  tableCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = 0;
+    printf("Checking horizontally\n");
   }
   else if (whichCheck == leftCheck || whichCheck == rightCheck || whichCheck == poleCheck) {
     colCheckRad = 0;
     rowCheckRad = (rowDim / 4) + 1;
+    printf("Checking vertically\n");
   }
   else if (whichCheck == forwardCheck || whichCheck == backwardCheck) {
     //some concern here
@@ -387,14 +291,19 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
     //then there would be little distinction between diagnols and straight lines anyways
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = (rowDim / 4) + 1;
+    printf("Checking diagnolly\n");
   }
 
-
+  printf("start cords are: %d , %d\n", colCur, rowCur);
+  printf("end cords are  : %d , %d\n", colCur + colCheckRad, rowCur + rowCheckRad);
+  //had an error here
+  //checked bothOOB != 2 last, so if previouse 
   while(orthogonalTraverse(colCur, rowCur,
 			   &colOrthOff, &rowOrthOff, 
 			   colCur + colCheckRad, rowCur + rowCheckRad) != 1
 	&& bothOOB != 2){
     bothOOB = 0;
+    printf("current offsets are: %d , %d\n", colOrthOff, rowOrthOff);
     diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);
     if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount;
@@ -408,7 +317,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
       bothOOB++;
     }
     else {
-      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
+      //printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
     
     diff = getDiffAtIndex(diffMatrix,colCur - colOrthOff,rowCur - rowOrthOff);
@@ -424,10 +333,15 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
       bothOOB++;
     }
     else {
-      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
+      //printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
   }
-  return edgeHits / edgeMisses;
+  printf("\n\n\nCalculated edge score of %f \n\n", edgeHits - edgeMisses);
+  //need to figure out what to do if there are no misses.
+  //one idea, could just subtrace the two instead of dividing
+  //that would be simple.
+  //only issue Is I need to fix my compare, because that takes abs of everything
+  return edgeHits - edgeMisses;
 }
 
 
@@ -436,6 +350,7 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   //while carry out a single step of a traversal from start to end
   //returns 1 when done with traversal
   //ratios, using y/x
+
   int ret;
   float controlRatio;
   float currentRatio;
@@ -443,6 +358,7 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   int changey = 0;
   int curx = startx + *offx;
   int cury = starty + *offy;
+  //printf("Starting regular traversal\nStart pos   are: %d, %d\ncurrent pos   : %d, %d\n end cords are  : %d, %d\n",startx, starty, curx, cury, endx, endy);
   if (curx != endx || cury != endy) {
     if (curx < endx) {
       changex = 1;
@@ -482,46 +398,63 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   }
   else {
     //already at end
+    //printf("done with traversal\n");
     ret = 1;
   }
+  curx = startx + *offx;
+  cury = starty + *offy;
+  //printf("after moving currents: %d, %d\n", curx, cury);
   return ret;
+}
+
+
+//following rotate and unrotate
+//just running through a rotation matrix of 90 degrees
+//
+// | cosθ, -sinθ |
+// | sinθ, cosθ  |
+//since I'm only rotating 90 degrees, don't need sin or cos really
+//just
+//
+// | 0, -1 |
+// | 1,  0 |
+void rotate9t(int* ox, int* oy) {
+  int rotx = *oy;
+  int roty = *ox * -1;
+
+  *ox = rotx;
+  *oy = roty;
+}
+
+void unrotate9t(int* rotx, int* roty) {
+  int ox = *roty * -1;
+  int oy = *rotx;
+
+  *rotx = ox;
+  *roty = oy;
 }
 
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   //given a start, current, and end position
   //will carry out a single step of a path roughly orthogonal to path from start to end
-  //first, transform current cords
-  //flip components, negate y
+  
   int ret;
-  int curx = startx + *offx;
-  int cury = starty + *offy;
-  int transx = cury;
-  int transy = curx * -1;
-  //throw into traverse
- 
-  ret = traverse(startx, starty, &transx, &transy, endx, endy);
+  rotate9t(offx, offy);
 
-  // then negate y, flip components
-  transy *= -1;
-  curx = transy;
-  cury = transx;
+  int curx = *offx;
+  int cury = *offy;
+
+  ret = traverse(startx, starty, &curx, &cury, endx, endy);
+
   
-  *offx = curx - startx;
-  *offy = cury - starty;
-  //voila
-  
-  //just running through a rotation matrix of 90 degrees
-  //
-  // | cosθ, -sinθ |
-  // | sinθ, cosθ  |
-  //since I'm only rotating 90 degrees, don't need sin or cos really
-  //just
-  //
-  // | 0, -1 |
-  // | 1,  0 |
+  *offx = curx;
+  *offy = cury;
+  unrotate9t(offx, offy);
 
   return ret;
 }
+
+
 
 static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet) {
   //given a profile, finds a closest match to a profile found in charSet
@@ -541,16 +474,7 @@ static character* closestCharacterToProfile(profileMatrix* subSect,  character**
     printf("segfaults inbound because no match\n");
   }
   return match;
-}
-
-
-character* newCharacter() {
-  character* new = malloc(sizeof(character));
-  new->charVal = NULL;
-  new->profile = NULL;
-  return new; 
-}
- 
+} 
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float score = compareEdges(p1->edgeScores, p2->edgeScores);
@@ -561,38 +485,178 @@ float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
 }
 
 float compareEdges(edges* e1, edges* e2) {
-  //will see how this work. 
+  //will see how this work.
   float delta = 0;
   float f1, f2;
-  f1 = e1->top;
-  f2 = e2->top;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->bottom;
-  f2 = e2->bottom;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->left;
-  f2 = e2->left;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->right;
-  f2 = e2->right;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->table;
-  f2 = e2->table;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->pole;
-  f2 = e2->pole;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->forward;
-  f2 = e2->forward;
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
-  f1 = e1->backward;
-  f2 = e2->backward;
+  edgeCheck whichCheck = topCheck;
+  while(whichCheck != doneChecking) {
+    if (whichCheck == topCheck) {
+        f1 = e1->top;
+	f2 = e2->top;
+	whichCheck = bottomCheck;
+    }
+    else if (whichCheck == bottomCheck) {
+        f1 = e1->bottom;
+	f2 = e2->bottom;
+	whichCheck = leftCheck;
+    }
+    else if (whichCheck == leftCheck) {
+        f1 = e1->left;
+	f2 = e2->left;
+	whichCheck = rightCheck;
+    }
+    else if (whichCheck == rightCheck) {
+        f1 = e1->right;
+	f2 = e2->right;
+	whichCheck = tableCheck;
+    }
+    else if (whichCheck == tableCheck) {
+        f1 = e1->table;
+	f2 = e2->table;
+	whichCheck = poleCheck;
+    }
+    else if (whichCheck == poleCheck) {
+        f1 = e1->pole;
+	f2 = e2->pole;
+	whichCheck = forwardCheck;
+    }
+    else if (whichCheck == forwardCheck) {
+        f1 = e1->forward;
+	f2 = e2->forward;
+	whichCheck = backwardCheck;
+    }
+    else if (whichCheck == backwardCheck) {
+        f1 = e1->backward;
+	f2 = e2->backward;
+	whichCheck = doneChecking;
+    }
+    delta += fabs(f1 - f2);
+  }
+
   delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
   return delta;
 }
+
 
 edges* initEdges() {
   edges* new = malloc(sizeof(edges));
   *new = (edges){.top = 0, .bottom = 0, .left = 0, .right = 0, .left = 0, .table = 0, .pole = 0, .forward = 0, .backward = 0};
   return new;
+}
+
+intMatrix* createIntMatrix(profileMatrix* prof) {
+  intMatrix* new = malloc(sizeof(intMatrix));
+  new->cols = prof->cols;
+  new->rows = prof->rows;
+  new->ints = malloc(sizeof(int*) * new->cols);
+  for(int colIndex = 0; colIndex < new->cols; colIndex++) {
+    new->ints[colIndex] = malloc(sizeof(int) * new->rows);
+    for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
+      new->ints[colIndex][rowIndex] = 0;
+    }
+  }
+  return new;
+}
+
+
+int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
+  if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
+      col < 0 || row < 0) {
+    //printf("Coord %d , %d is oob\n", col, row);
+    return diffErr;;
+  }
+  else {
+    return diffMatrix->ints[col][row];
+  }
+}
+
+void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
+  if (col > diffMatrix->cols || col > diffMatrix->rows) {
+    fprintf(stderr, "Index out of bound\n");
+  }
+
+  else {
+    diffMatrix->ints[col][row] = val;
+  }
+}
+
+myColor* newColor() {
+  myColor* new = malloc(sizeof(myColor));
+  *new = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
+  return new;
+}
+
+colorMatrix* newColorMatrix(int cols, int rows) {
+  colorMatrix* new = malloc(sizeof(colorMatrix));
+  new->rows = rows;
+  new->cols = cols;
+  new->cells = malloc(sizeof(myColor**) * rows);
+  for(int rowIndex =0; rowIndex < rows; rowIndex++) {
+    new->cells[rowIndex] = malloc(sizeof(myColor*) * cols);
+    for(int colIndex = 0; colIndex < cols; colIndex++) {
+      new->cells[rowIndex][colIndex] = newColor();      
+    }
+  }
+  return new;
+}
+
+void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
+  if (row < matrix->rows && col < matrix->cols) {
+    cloneColor(matrix->cells[row][col], tobe);
+  }
+  else {
+    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
+  }
+}
+
+myColor* getColor(colorMatrix* matrix, int col, int row) {
+  if (row < matrix->rows && col < matrix->cols &&
+      row >= 0 && col >= 0) {
+    return matrix->cells[row][col];
+  }
+  else {
+    return NULL;
+  }
+}
+
+int getPixelDif(myColor* c1, myColor* c2) {
+  //what would be a good method for this
+  //want to prioritize lightness more than hue more than saturation.
+  int difference = 0;
+  int scaleAmount = 10;
+  if (c1 != NULL && c2 != NULL) {
+    difference = (int)fabs(c1->lightness - c2->lightness);
+    difference *= scaleAmount;
+    difference += (int)fabs(c1->hue - c2->hue);
+    difference *= scaleAmount;
+    difference += (int)fabs(c1->sat - c2->sat);
+  }
+  else {
+    difference = 0;
+  }
+  return difference;
+  
+}
+
+void cloneColor(myColor* dest, myColor* src) {
+  //copy value of fields in src to dest
+  *dest = *src;
+}
+
+profileMatrix* newProfileMatrix(colorMatrix* colors) {
+  profileMatrix* new = NULL;
+  new = malloc(sizeof(profileMatrix));
+  new->source = colors;
+  new->rows = colors->rows;
+  new->cols = colors->cols;
+  new->edgeScores = NULL;
+  new->diff = NULL;
+  return new;
+}
+
+character* newCharacter() {
+  character* new = malloc(sizeof(character));
+  new->charVal = NULL;
+  new->profile = NULL;
+  return new; 
 }

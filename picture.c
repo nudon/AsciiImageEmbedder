@@ -62,47 +62,6 @@ int katakanaUsed = 0;
 //figureing out how imageMagick's draw annotaion expects utf input to look like
 //also issues of getting aspect ration of font, and setting size of font/regions.
 
-void work() {
-MagickWand *mw = NULL;
-	DrawingWand *dw = NULL;
-
-	char *str = "Hello Magicians \xc4\x9a\xc5\x90\xc4\x9c \x61\xc4\x85\x63\xc4\x87\x65\xc4\x99\x6c\xc5\x82\x6e\xc5\x84\x6f\xc3\xb3\x73\xc5\x9b\x7a\xc5\xbc\x78\xc5\xba\x00";
-	double *fm = NULL;
-
-	MagickWandGenesis();
-	mw = NewMagickWand();
-	dw = NewDrawingWand();
-
-	// Start with an empty image
-	MagickReadImage(mw,"xc:");
-
-	// Set the font information in the drawing wand
-	DrawSetFontSize(dw,72);
-	DrawSetFont(dw,"Times-New-Roman");
-
-	fm = MagickQueryFontMetrics(mw, dw, (const char *) str);
-
-	// extend the size of the image - I think this is the right one to use
-	// but works for me in this case
-	MagickExtentImage(mw,(unsigned long)fm[4],(unsigned long)fm[5],0,0);
-
-	// Annotate the image - Note the calculation of the y value which is 
-	// because the font metrics use an origin in the lower left whereas IM has
-	// its origin at top left
-	// The fontmetrics origin is the *bottom* left of the text and the Y axis
-	// is the baseline. Therefore, the bounding box can have a negative Y value
-	// if the text contains any descenders which go below the baseline
-	MagickAnnotateImage(mw,dw, 0 ,(unsigned int)(fm[8]+ fm[5]), 0.0 ,str);
-
-	// Now write the magickwand image
-	MagickWriteImage(mw,"metric.gif");
-
-	if(mw)mw = DestroyMagickWand(mw);
-	if(dw)dw = DestroyDrawingWand(dw);
-	if(fm)RelinquishMagickMemory(fm);
-	MagickWandTerminus();
-}
-
 int main(int argc, char * argv[]) {
   //int unicodeQuote = 0x2018;
   //char* anoTemp = "\u2018";
@@ -137,9 +96,9 @@ int main(int argc, char * argv[]) {
       fontSize = 20;
     }
     fileName = argv[1];
-    imgConvInit();
-    //first, do some testing to find a good fontSize
-      
+    imgInit();
+
+    //first, get metrics of font
     MagickBooleanType status;
     PixelWand* white = NewPixelWand();
     PixelSetColor(white, "white");
@@ -166,6 +125,7 @@ int main(int argc, char * argv[]) {
       
     regionWidth = fontWidth;
     regionHeight = fontHeight;
+    printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
     //load file name using whatever image library I'm using
     MagickWand* birch = NewMagickWand();
     MagickSetFirstIterator(birch);
@@ -189,6 +149,10 @@ int main(int argc, char * argv[]) {
     else {
       printf("Unable to open file %s\n", fileName);
     }
+    DestroyMagickWand(staff);
+    DestroyMagickWand(birch);
+    RelinquishMagickMemory(fm);
+    imgQuit();
   }
   else {
     fprintf(stderr, "Give a file name\n");
@@ -237,15 +201,39 @@ image* newImage(colorMatrix* entireImage) {
   return new;
 }
 
+void freeImage(image* rm) {
+  freeCharacterMatrix(rm->filledCharacterss);
+  freeProfile(rm->profiles);
+  free(rm);
+}
+
 character*** newCharacterMatrix(int cols, int rows) {
-  character*** new = malloc(sizeof(character**) * rows);
+  character*** new = malloc(sizeof(character**) * rows + 1);
   for(int rowIndex = 0; rowIndex < rows; rowIndex++) {
-    new[rowIndex] = malloc(sizeof(character*) * cols);
+    new[rowIndex] = malloc(sizeof(character*) * cols + 1);
     for (int colIndex = 0; colIndex < cols; colIndex++) {
       new[rowIndex][colIndex] = NULL;
     }
+    new[rowIndex][cols] = NULL;
   }
+  new[rows] = NULL;
   return new;
+}
+
+
+//was lazy and didn't make this a struct
+//so this will be fun
+void freeCharacterMatrix(character*** rm) {
+  int colIndex = 0;
+  int rowIndex = 0;
+  while(rm[rowIndex] != NULL) {
+    while(rm[rowIndex][colIndex] != NULL) {
+      free(rm[rowIndex][colIndex]);
+      colIndex++;
+    }
+    rowIndex++;
+  }
+  free(rm);
 }
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight) {
@@ -301,11 +289,11 @@ void matchImageToCharacters(image* pic, character** characterSet) {
 }
 
 
-void imgConvInit() {
+void imgInit() {
   MagickWandGenesis();
 }
 
-void imgConvClose() {
+void imgQuit() {
   MagickWandTerminus();
 }
 
@@ -341,6 +329,19 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
   }
   free(color);
   return colors;
+}
+
+void freeColorMatrix(colorMatrix* rm) {
+  int rowMax = rm->rows;
+  int colMax = rm->cols;
+  for (int rowIndex = 0; rowIndex < rowMax; rowIndex++) {
+    for (int colIndex = 0; colIndex < colMax; colIndex++) {
+      freeColor(rm->cells[rowIndex][colIndex]);
+    }
+    free(rm->cells[rowIndex]);
+  }
+  free(rm->cells);
+  free(rm);
 }
 
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color) {
@@ -414,9 +415,15 @@ double averageCompareResults(colorMatrix* colors) {
 character* makecharacter(char* value) {
   character* new = malloc(sizeof(character));
   new->charVal = value;
+  new->profileMatrix = NULL;
   return new;
 }
 
+void freeCharacter(character* rm) {
+  free(rm->charVal);
+  freeProfile(rm->profile);
+  free(rm);
+}
 
 character** buildCharacterSet(char* font, int fw, int fh, int fs) {
   //based on the ascii/etc used variables, builds up a characterset
@@ -503,6 +510,7 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
     }
   }
   charSet[index] = NULL;
+  
   return charSet;
 }
  
@@ -600,49 +608,3 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   }
   MagickWriteImage(staff, "output.jpg");
 }
-
-
-/*
-
-
-also, tests for printing things
-  int mag = 59;
-  char* test = "\u2018";
-
-  //so ,generally 
-
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  MagickAnnotateImage(hickory, creator, 0, 0, 0, (const unsigned char*)"fk");
-  MagickWriteImage(hickory, "test0.jpg");
-
-  //will work. If I set utf-8 encoding then shit breaks.
-  //as in, can't hand in fk and expect an fk to be printed.
-  //goint to try this because it looks scary but seems like a good idea
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  fm = MagickQueryFontMetrics(hickory, creator, str);
-  MagickAnnotateImage(hickory,creator, 0 ,(unsigned int)(fm[8]+ fm[5]), 0.0 ,str);
-  MagickWriteImage(hickory, "testWorkingOnTheJobs.jpg");
-  
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  MagickAnnotateImage(hickory, creator, 59, 59, 0, (const unsigned char*)"fk");
-  MagickWriteImage(hickory, "test0-0.jpg");
-
-  DrawSetTextEncoding(creator, "UTF-8");
-
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  MagickAnnotateImage(hickory, creator, 59, 59, 0, (const unsigned char*)test);
-  MagickWriteImage(hickory, "test1.jpg");
-
-  test = "\xc4\x9a";
-
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  MagickAnnotateImage(hickory, creator, mag, mag, 0, (const unsigned char*)test);
-  MagickWriteImage(hickory, "test2.jpg");
-
-  test = intToIMUnicode(0xc49a);
-
-  MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-  MagickAnnotateImage(hickory, creator, mag,-mag, 0,(const unsigned char*)test);
-  MagickWriteImage(hickory, "test3.jpg");
-  //done 
-*/

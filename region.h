@@ -60,9 +60,6 @@ struct {
   //may either point to an ascii character
   //or a multi-byte unicode codepoint
   char* charVal;
-  //some vector format of character?
-  //or maybe a large enough raster?
-  //maybe not as fields, but I need those one way or another
   profileMatrix * profile;
 } character;
 
