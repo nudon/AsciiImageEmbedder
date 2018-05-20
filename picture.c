@@ -6,6 +6,7 @@
 
 #include "region.h"
 
+
 //potential bugs to run into
 //realized that I'm not accounting for the spaces between lines or characters.
 //might not matter, if they do would have to do some more calculations. Essentially find out how big those gaps are
@@ -20,9 +21,9 @@ void utf8Things();
 
 double diffThreshHold;
 
-void imgConvInit();
+void imgInit();
 
-void imgConvClose();
+void imgQuit();
 
 void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth);
 
@@ -144,7 +145,7 @@ int main(int argc, char * argv[]) {
       character** characterSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
       matchImageToCharacters(pic, characterSet);
       drawPicToDisk(pic, fontToUse, fontSize);
-      imgConvClose();
+      freeImage(pic);
     }
     else {
       printf("Unable to open file %s\n", fileName);
@@ -187,54 +188,11 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
       MagickScaleImage(staff, imageWidth + remainingWidth, imageHeight);
     }
   }
-  MagickWriteImage(staff, "scaledThing.png");
-}
-
-image* newImage(colorMatrix* entireImage) {
-  image* new = malloc(sizeof(image));
-  new->width = entireImage->cols;;
-  new->height = entireImage->rows;;
-  new->numberOfRegionCols = -1;
-  new->numberOfRegionRows = -1;
-  new->profiles = NULL;
-  new->filledCharacterss = NULL;
-  return new;
-}
-
-void freeImage(image* rm) {
-  freeCharacterMatrix(rm->filledCharacterss);
-  freeProfile(rm->profiles);
-  free(rm);
-}
-
-character*** newCharacterMatrix(int cols, int rows) {
-  character*** new = malloc(sizeof(character**) * rows + 1);
-  for(int rowIndex = 0; rowIndex < rows; rowIndex++) {
-    new[rowIndex] = malloc(sizeof(character*) * cols + 1);
-    for (int colIndex = 0; colIndex < cols; colIndex++) {
-      new[rowIndex][colIndex] = NULL;
-    }
-    new[rowIndex][cols] = NULL;
-  }
-  new[rows] = NULL;
-  return new;
+  //gickWriteImage(staff, "scaledThing.png");
 }
 
 
-//was lazy and didn't make this a struct
-//so this will be fun
-void freeCharacterMatrix(character*** rm) {
-  int colIndex = 0;
-  int rowIndex = 0;
-  while(rm[rowIndex] != NULL) {
-    while(rm[rowIndex][colIndex] != NULL) {
-      free(rm[rowIndex][colIndex]);
-      colIndex++;
-    }
-    rowIndex++;
-  }
-  free(rm);
-}
+
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight) {
   image* pic = newImage(entireImage);
@@ -331,19 +289,6 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
   return colors;
 }
 
-void freeColorMatrix(colorMatrix* rm) {
-  int rowMax = rm->rows;
-  int colMax = rm->cols;
-  for (int rowIndex = 0; rowIndex < rowMax; rowIndex++) {
-    for (int colIndex = 0; colIndex < colMax; colIndex++) {
-      freeColor(rm->cells[rowIndex][colIndex]);
-    }
-    free(rm->cells[rowIndex]);
-  }
-  free(rm->cells);
-  free(rm);
-}
-
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color) {
   //normalizeToNonnormalize
   int ntn = 255;
@@ -412,18 +357,7 @@ double averageCompareResults(colorMatrix* colors) {
 }
 
 
-character* makecharacter(char* value) {
-  character* new = malloc(sizeof(character));
-  new->charVal = value;
-  new->profileMatrix = NULL;
-  return new;
-}
 
-void freeCharacter(character* rm) {
-  free(rm->charVal);
-  freeProfile(rm->profile);
-  free(rm);
-}
 
 character** buildCharacterSet(char* font, int fw, int fh, int fs) {
   //based on the ascii/etc used variables, builds up a characterset
@@ -492,7 +426,6 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
       for(int intCode = codeStart; intCode <= codeEnd; intCode++) {
 	MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
 	charSet[index++] = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
-	MagickWriteImage(hickory, "testAChar.jpg");
       }
     }
     else {
@@ -602,9 +535,11 @@ void drawPicToDisk(image* pic, char* font, int fs) {
 			  rowIndex * aProfile->rows,
 			  0,
 			  pic->filledCharacterss[rowIndex][colIndex]->charVal);
-      printf("Drawing a thing");
+      //printf("Drawing a thing");
     }
-    printf("\n");
+    //printf("\n");
   }
   MagickWriteImage(staff, "output.jpg");
+  DestroyMagickWand(staff);
+  DestroyDrawingWand(creator);
 }

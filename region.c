@@ -3,6 +3,7 @@
 #include <math.h>
 #include "region.h"
 
+
 //as buggy as this is likely to be
 //think I have all the function I want to write
 //given a profileMatrix, I have functions to generate an edges struct
@@ -111,7 +112,7 @@ character* matchProfileToCharacter(profileMatrix* prof,  character** charSet) {
       fillDiffMatrix(diff, prof);
     }
     else {
-      printf("Error, given a profile with no colorMatrix\n");
+      //printf("Error, given a profile with no colorMatrix\n");
       return NULL;
     }
   }
@@ -121,6 +122,26 @@ character* matchProfileToCharacter(profileMatrix* prof,  character** charSet) {
   }
   return closestCharacterToProfile(prof, charSet);
 }
+
+static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet) {
+  //given a profile, finds a closest match to a profile found in charSet
+  int index = 0;
+  float score;
+  float min = -1;
+  character* match = NULL;
+  while(charSet[index] != NULL) {
+    score = compareProfiles(subSect, charSet[index]->profile);
+    if (score < min || match == NULL) {
+      min = score;
+      match = charSet[index];
+    }
+    index++;
+  }
+  if (match == NULL) {
+    printf("segfaults inbound because no match\n");
+  }
+  return match;
+} 
 
 edges* betterPopulateEdges(profileMatrix* prof) {
   //given a profile with diffs
@@ -138,7 +159,7 @@ edges* betterPopulateEdges(profileMatrix* prof) {
   //the -1 keeps traversal within matrix
   //othersise one final check is done outside matrix
   //not hits, no misses, returns 0/0, nan, which messes up cumulative score
-  printf("\nONTO A NEW PROFILE\n");
+  //printf("\nONTO A NEW PROFILE\n");
   while(checkType != doneChecking) {
     if (checkType == topCheck) {
       rowStart = 0;
@@ -199,7 +220,7 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       numRuns++;
     }
     edgeScore = edgeScore/numRuns;
-    printf("\n\n\n\n\nFinished edgeScore is %f\n\n\n\n", edgeScore);
+    //printf("\n\n\n\n\nFinished edgeScore is %f\n\n\n\n", edgeScore);
     if (checkType == topCheck) {
       foundEdges->top = edgeScore;
       checkType = bottomCheck;
@@ -274,12 +295,12 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   if (whichCheck == topCheck ||whichCheck ==  bottomCheck ||whichCheck ==  tableCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = 0;
-    printf("Checking horizontally\n");
+    //printf("Checking horizontally\n");
   }
   else if (whichCheck == leftCheck || whichCheck == rightCheck || whichCheck == poleCheck) {
     colCheckRad = 0;
     rowCheckRad = (rowDim / 4) + 1;
-    printf("Checking vertically\n");
+    //printf("Checking vertically\n");
   }
   else if (whichCheck == forwardCheck || whichCheck == backwardCheck) {
     //some concern here
@@ -291,11 +312,11 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
     //then there would be little distinction between diagnols and straight lines anyways
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = (rowDim / 4) + 1;
-    printf("Checking diagnolly\n");
+    //printf("Checking diagnolly\n");
   }
 
-  printf("start cords are: %d , %d\n", colCur, rowCur);
-  printf("end cords are  : %d , %d\n", colCur + colCheckRad, rowCur + rowCheckRad);
+  //printf("start cords are: %d , %d\n", colCur, rowCur);
+  //printf("end cords are  : %d , %d\n", colCur + colCheckRad, rowCur + rowCheckRad);
   //had an error here
   //checked bothOOB != 2 last, so if previouse 
   while(orthogonalTraverse(colCur, rowCur,
@@ -303,7 +324,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
 			   colCur + colCheckRad, rowCur + rowCheckRad) != 1
 	&& bothOOB != 2){
     bothOOB = 0;
-    printf("current offsets are: %d , %d\n", colOrthOff, rowOrthOff);
+    //printf("current offsets are: %d , %d\n", colOrthOff, rowOrthOff);
     diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);
     if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount;
@@ -336,7 +357,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
       //printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
   }
-  printf("\n\n\nCalculated edge score of %f \n\n", edgeHits - edgeMisses);
+  //printf("\n\n\nCalculated edge score of %f \n\n", edgeHits - edgeMisses);
   //need to figure out what to do if there are no misses.
   //one idea, could just subtrace the two instead of dividing
   //that would be simple.
@@ -344,6 +365,52 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   return edgeHits - edgeMisses;
 }
 
+
+//following rotate and unrotate
+//just running through a rotation matrix of 90 degrees
+//
+// | cosθ, -sinθ |
+// | sinθ, cosθ  |
+//since I'm only rotating 90 degrees, don't need sin or cos really
+//just
+//
+// | 0, -1 |
+// | 1,  0 |
+void rotate9t(int* ox, int* oy) {
+  int rotx = *oy;
+  int roty = *ox * -1;
+
+  *ox = rotx;
+  *oy = roty;
+}
+
+void unrotate9t(int* rotx, int* roty) {
+  int ox = *roty * -1;
+  int oy = *rotx;
+
+  *rotx = ox;
+  *roty = oy;
+}
+
+int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
+  //given a start, current, and end position
+  //will carry out a single step of a path roughly orthogonal to path from start to end
+  
+  int ret;
+  rotate9t(offx, offy);
+
+  int curx = *offx;
+  int cury = *offy;
+
+  ret = traverse(startx, starty, &curx, &cury, endx, endy);
+
+  
+  *offx = curx;
+  *offy = cury;
+  unrotate9t(offx, offy);
+
+  return ret;
+}
 
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   //given a start, current, and end position
@@ -408,74 +475,6 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 }
 
 
-//following rotate and unrotate
-//just running through a rotation matrix of 90 degrees
-//
-// | cosθ, -sinθ |
-// | sinθ, cosθ  |
-//since I'm only rotating 90 degrees, don't need sin or cos really
-//just
-//
-// | 0, -1 |
-// | 1,  0 |
-void rotate9t(int* ox, int* oy) {
-  int rotx = *oy;
-  int roty = *ox * -1;
-
-  *ox = rotx;
-  *oy = roty;
-}
-
-void unrotate9t(int* rotx, int* roty) {
-  int ox = *roty * -1;
-  int oy = *rotx;
-
-  *rotx = ox;
-  *roty = oy;
-}
-
-int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
-  //given a start, current, and end position
-  //will carry out a single step of a path roughly orthogonal to path from start to end
-  
-  int ret;
-  rotate9t(offx, offy);
-
-  int curx = *offx;
-  int cury = *offy;
-
-  ret = traverse(startx, starty, &curx, &cury, endx, endy);
-
-  
-  *offx = curx;
-  *offy = cury;
-  unrotate9t(offx, offy);
-
-  return ret;
-}
-
-
-
-static character* closestCharacterToProfile(profileMatrix* subSect,  character** charSet) {
-  //given a profile, finds a closest match to a profile found in charSet
-  int index = 0;
-  float score;
-  float min = -1;
-  character* match = NULL;
-  while(charSet[index] != NULL) {
-    score = compareProfiles(subSect, charSet[index]->profile);
-    if (score < min || match == NULL) {
-      min = score;
-      match = charSet[index];
-    }
-    index++;
-  }
-  if (match == NULL) {
-    printf("segfaults inbound because no match\n");
-  }
-  return match;
-} 
-
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float score = compareEdges(p1->edgeScores, p2->edgeScores);
   //also do something with darkness/lightness averages
@@ -485,7 +484,8 @@ float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
 }
 
 float compareEdges(edges* e1, edges* e2) {
-  //will see how this work.
+  //compares two edges
+  //
   float delta = 0;
   float f1, f2;
   edgeCheck whichCheck = topCheck;
@@ -532,38 +532,13 @@ float compareEdges(edges* e1, edges* e2) {
     }
     delta += fabs(f1 - f2);
   }
-
-  delta += fmax(fabs(f1), fabs(f2)) - fmin(fabs(f1), fabs(f2));
   return delta;
 }
-
-
-edges* initEdges() {
-  edges* new = malloc(sizeof(edges));
-  *new = (edges){.top = 0, .bottom = 0, .left = 0, .right = 0, .left = 0, .table = 0, .pole = 0, .forward = 0, .backward = 0};
-  return new;
-}
-
-intMatrix* createIntMatrix(profileMatrix* prof) {
-  intMatrix* new = malloc(sizeof(intMatrix));
-  new->cols = prof->cols;
-  new->rows = prof->rows;
-  new->ints = malloc(sizeof(int*) * new->cols);
-  for(int colIndex = 0; colIndex < new->cols; colIndex++) {
-    new->ints[colIndex] = malloc(sizeof(int) * new->rows);
-    for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
-      new->ints[colIndex][rowIndex] = 0;
-    }
-  }
-  return new;
-}
-
 
 int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
   if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
       col < 0 || row < 0) {
-    //printf("Coord %d , %d is oob\n", col, row);
-    return diffErr;;
+    return diffErr;
   }
   else {
     return diffMatrix->ints[col][row];
@@ -574,31 +549,11 @@ void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
   if (col > diffMatrix->cols || col > diffMatrix->rows) {
     fprintf(stderr, "Index out of bound\n");
   }
-
   else {
     diffMatrix->ints[col][row] = val;
   }
 }
 
-myColor* newColor() {
-  myColor* new = malloc(sizeof(myColor));
-  *new = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
-  return new;
-}
-
-colorMatrix* newColorMatrix(int cols, int rows) {
-  colorMatrix* new = malloc(sizeof(colorMatrix));
-  new->rows = rows;
-  new->cols = cols;
-  new->cells = malloc(sizeof(myColor**) * rows);
-  for(int rowIndex =0; rowIndex < rows; rowIndex++) {
-    new->cells[rowIndex] = malloc(sizeof(myColor*) * cols);
-    for(int colIndex = 0; colIndex < cols; colIndex++) {
-      new->cells[rowIndex][colIndex] = newColor();      
-    }
-  }
-  return new;
-}
 
 void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
   if (row < matrix->rows && col < matrix->cols) {
@@ -643,20 +598,6 @@ void cloneColor(myColor* dest, myColor* src) {
   *dest = *src;
 }
 
-profileMatrix* newProfileMatrix(colorMatrix* colors) {
-  profileMatrix* new = NULL;
-  new = malloc(sizeof(profileMatrix));
-  new->source = colors;
-  new->rows = colors->rows;
-  new->cols = colors->cols;
-  new->edgeScores = NULL;
-  new->diff = NULL;
-  return new;
-}
 
-character* newCharacter() {
-  character* new = malloc(sizeof(character));
-  new->charVal = NULL;
-  new->profile = NULL;
-  return new; 
-}
+
+
