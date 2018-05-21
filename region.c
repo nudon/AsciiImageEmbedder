@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <math.h>
 #include "region.h"
+#include "dataStructures.h"
 
+extern int diffYes;
+extern int diffNo;
+extern int diffErr;
 
 //as buggy as this is likely to be
 //think I have all the function I want to write
@@ -14,10 +18,6 @@
 //will traverse/iterate current position from start to end in a straight-ish line
 
 int diffParam;
-
-int diffYes = 1;
-int diffNo = 0;
-int diffErr = -1;
 
 //so, fixed a lot of bugs
 //had a goof in orthogoal travers, was computing the current position and handing that in as offsets
@@ -112,7 +112,7 @@ character* matchProfileToCharacter(profileMatrix* prof,  character** charSet) {
       fillDiffMatrix(diff, prof);
     }
     else {
-      //printf("Error, given a profile with no colorMatrix\n");
+      fprintf(stderr,"Error, given a profile with no colorMatrix\n");
       return NULL;
     }
   }
@@ -476,11 +476,22 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
-  float score = compareEdges(p1->edgeScores, p2->edgeScores);
+  float totScore, edgeScore, avgColorScore; 
+  edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
   //also do something with darkness/lightness averages
+  //now have an everage color for each matrix
+  //could either take intensity from rgb's and compare
+  //or just reuse my comparePixels functoin
+  //or make getPixelDiff compare intensity of rgb instead
 
-
-  return score;
+  //getPixelDiff, since the range gets pretty high
+  //divide it by 10
+  avgColorScore = getPixelDif(p1->averageColor, p2->averageColor);
+  avgColorScore /= 15;
+  avgColorScore = 0;
+  //printf("EdgeScore was %f, colorScore was %f\n", edgeScore, avgColorScore);
+  totScore = edgeScore + avgColorScore;
+  return totScore;
 }
 
 float compareEdges(edges* e1, edges* e2) {
@@ -535,50 +546,12 @@ float compareEdges(edges* e1, edges* e2) {
   return delta;
 }
 
-int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
-  if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
-      col < 0 || row < 0) {
-    return diffErr;
-  }
-  else {
-    return diffMatrix->ints[col][row];
-  }
-}
-
-void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
-  if (col > diffMatrix->cols || col > diffMatrix->rows) {
-    fprintf(stderr, "Index out of bound\n");
-  }
-  else {
-    diffMatrix->ints[col][row] = val;
-  }
-}
-
-
-void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
-  if (row < matrix->rows && col < matrix->cols) {
-    cloneColor(matrix->cells[row][col], tobe);
-  }
-  else {
-    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
-  }
-}
-
-myColor* getColor(colorMatrix* matrix, int col, int row) {
-  if (row < matrix->rows && col < matrix->cols &&
-      row >= 0 && col >= 0) {
-    return matrix->cells[row][col];
-  }
-  else {
-    return NULL;
-  }
-}
-
 int getPixelDif(myColor* c1, myColor* c2) {
   //what would be a good method for this
   //want to prioritize lightness more than hue more than saturation.
+  //I think? need to experiment
   int difference = 0;
-  int scaleAmount = 10;
+  int scaleAmount = 2;
   if (c1 != NULL && c2 != NULL) {
     difference = (int)fabs(c1->lightness - c2->lightness);
     difference *= scaleAmount;
@@ -590,14 +563,4 @@ int getPixelDif(myColor* c1, myColor* c2) {
     difference = 0;
   }
   return difference;
-  
 }
-
-void cloneColor(myColor* dest, myColor* src) {
-  //copy value of fields in src to dest
-  *dest = *src;
-}
-
-
-
-

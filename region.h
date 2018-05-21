@@ -37,19 +37,6 @@
 
 void setDiffParam(int new);
 
-intMatrix* createIntMatrix(profileMatrix* prof);
-int getDiffAtIndex(intMatrix* diffMatrix, int col, int row);
-void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val);
-
-myColor* newColor();
-colorMatrix* newColorMatrix(int cols, int rows);
-void setColor(colorMatrix* matrix, int row, int col, myColor* tobe);
-myColor* getColor(colorMatrix* matrix, int col, int row);
-void cloneColor(myColor* dest, myColor* src);
-int getPixelDif(myColor* c1, myColor* c2);
-
-profileMatrix* newProfileMatrix(colorMatrix* colors);
-
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 
@@ -67,4 +54,4 @@ float compareProfiles(profileMatrix* p1, profileMatrix* p2);
 
 float compareEdges(edges* e1, edges* e2);
 
-edges* initEdges();
+int getPixelDif(myColor* c1, myColor* c2);

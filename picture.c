@@ -35,6 +35,8 @@ double averageCompareResults(colorMatrix* colors);
 
 colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo);
 
+myColor* calculateAverageColor(colorMatrix* colorMatrix);
+
 void matchImageToCharacters(image* pic, character** characterSet);
 
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
@@ -202,6 +204,8 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
   profileMatrix* aProfile = NULL;
   colorMatrix* regionColors = NULL;
   myColor* aColor = NULL;
+  myColor* average;
+  int numPixels = regHeight * regWidth;
   //then read pixels into myColor and divide picture into regions.
   profileMatrix*** profiles = malloc(sizeof(profileMatrix*) * regRows);
   pic->profiles = profiles;
@@ -210,6 +214,7 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
     for(int regx = 1; regx <= regCols; regx++) {
       pic->profiles[regy - 1][regx - 1] = NULL;
       regionColors = newColorMatrix(regWidth, regHeight);
+      average = newColor();
       for(int suby = 0; suby < regHeight; suby++) {
 	for(int subx = 0; subx < regWidth; subx++) {
 	  aColor = getColor(entireImage,
@@ -218,12 +223,16 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
 	  
 	  //copy into region
 	  setColor(regionColors, subx, suby, aColor);
-	  
+	  //start computing average
+	  addColorToColor(average, aColor);	  
 	}
       }
       aProfile = newProfileMatrix(regionColors);
-      //this took a while to figure out
+      divideColor(average, numPixels);
+      aProfile->averageColor = average;
       pic->profiles[regy - 1][regx - 1] = aProfile;
+
+      
     }
   }
   return pic;
@@ -316,8 +325,8 @@ double averageCompareResults(colorMatrix* colors) {
   int cols = colors->cols;
     int testC, testR, testNumber;
   myColor* current, *compare;
-  int results;
-  int numRuns;
+  int results = 0;
+  int numRuns = 0;
   for (int colIndex = 0; colIndex < cols; colIndex++) {
     for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
       current = getColor(colors, colIndex, rowIndex);
@@ -346,7 +355,7 @@ double averageCompareResults(colorMatrix* colors) {
 	compare = getColor(colors, testC, testR);
 	//eventually...
 	if (compare != NULL) {
-	  results = getPixelDif(current, compare);
+	  results += getPixelDif(current, compare);
 	  numRuns++;
 	}
 	testNumber++;
@@ -425,7 +434,8 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
     if(codeUsed) {
       for(int intCode = codeStart; intCode <= codeEnd; intCode++) {
 	MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-	charSet[index++] = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
+	charSet[index] = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
+	index++;
       }
     }
     else {
@@ -442,7 +452,7 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
       katakanaUsed = 0;
     }
   }
-  charSet[index] = NULL;
+  charSet[size] = (character*) NULL;
   
   return charSet;
 }
@@ -458,10 +468,14 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   x = 0;
   y = 14;
   char* codePoint = intToIMUnicode(intCode);
-
+  //char fn[7];
+  //sprintf(fn, "%d.jpg", tempCount++);
   MagickAnnotateImage(staff, creator, x, y, 0, (const char*)codePoint);
+  //MagickWriteImage(staff, fn);
   readWandIntoColorMatrix(staff, charColors);
+  myColor* averageColor = calculateAverageColor(charColors);
   profileMatrix* charProfile = newProfileMatrix(charColors);
+  charProfile->averageColor = averageColor;
   intMatrix* difs = createIntMatrix(charProfile);
   //might want to call averageCompare results and set param again before doing this
   fillDiffMatrix(difs, charProfile);
@@ -470,6 +484,20 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   completeChar->charVal = codePoint;
   completeChar->profile = charProfile;
   return completeChar;
+}
+
+myColor* calculateAverageColor(colorMatrix* colorMatrix) {
+  myColor* average = newColor();
+  int rows = colorMatrix->rows;
+  int cols = colorMatrix->cols;
+  int numPixels = rows * cols;
+  for(int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for(int colIndex = 0; colIndex < cols; colIndex++) {
+      addColorToColor(average, getColor(colorMatrix, colIndex, rowIndex));
+    }
+  }
+  divideColor(average, numPixels);
+  return average;
 }
 
 
@@ -490,8 +518,11 @@ char* intToIMUnicode(u_int32_t intCode) {
   u_int32_t copy = intCode;
   copy = copy;
   char copyThing[sizeOfIMCharCode];
-  copyThing[sizeOfIMCharCode - 1] = '\0';
-  for(int index = sizeOfIMCharCode - 2; index > 0; index--) {
+  for(int i = 0; i < sizeOfIMCharCode; i++) {
+    copyThing[i] = '\0';
+  }
+  //copyThing[sizeOfIMCharCode - 1] = '\0';
+  for(int index = sizeOfIMCharCode - 2; index >= 0; index--) {
     byteBlock = intCode & 0xff;
     intCode = intCode >> 8;
     copyThing[index] = byteBlock;

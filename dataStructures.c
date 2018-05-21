@@ -1,5 +1,10 @@
+
 #include <stdlib.h>
 #include "dataStructures.h"
+
+int diffYes = 1;
+int diffNo = 0;
+int diffErr = -1;
 
 profileMatrix* newProfileMatrix(colorMatrix* colors) {
   profileMatrix* new = NULL;
@@ -16,6 +21,7 @@ void freeProfileMatrix(profileMatrix* rm) {
   freeIntMatrix(rm->diff);
   free(rm->edgeScores);
   freeColorMatrix(rm->source);
+  freeColor(rm->averageColor);
   free(rm);
 }
 
@@ -105,6 +111,26 @@ void freeColor(myColor* rm) {
   free(rm);
 }
 
+void addColorToColor(myColor* dest, myColor* src) {
+  dest->hue += src->hue;
+  dest->sat += src->sat;
+  dest->lightness += src->lightness;
+  dest->red += src->red;
+  dest->green += src->green;
+  dest->blue += src->blue;
+}
+
+void divideColor(myColor* dest, int denom) {
+  dest->hue /= denom;
+  dest->sat /= denom;
+  dest->lightness /= denom;
+  dest->red /= denom;
+  dest->green /= denom;
+  dest->blue /= denom;
+}
+
+
+
 image* newImage(colorMatrix* entireImage) {
   image* new = malloc(sizeof(image));
   new->width = entireImage->cols;;
@@ -156,4 +182,51 @@ edges* initEdges() {
   edges* new = malloc(sizeof(edges));
   *new = (edges){.top = 0, .bottom = 0, .left = 0, .right = 0, .left = 0, .table = 0, .pole = 0, .forward = 0, .backward = 0};
   return new;
+}
+
+
+//getters and settters
+
+int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
+  if (col >= diffMatrix->cols || row >= diffMatrix->rows ||
+      col < 0 || row < 0) {
+    return diffErr;
+  }
+  else {
+    return diffMatrix->ints[col][row];
+  }
+}
+
+void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
+  if (col > diffMatrix->cols || col > diffMatrix->rows) {
+    fprintf(stderr, "Index out of bound\n");
+  }
+  else {
+    diffMatrix->ints[col][row] = val;
+  }
+}
+
+
+void setColor(colorMatrix* matrix, int col, int row, myColor* tobe) {
+  if (row < matrix->rows && col < matrix->cols) {
+    cloneColor(matrix->cells[row][col], tobe);
+  }
+  else {
+    fprintf(stderr, "Given a bad index for colorMatrix in setColor\n");
+  }
+}
+
+myColor* getColor(colorMatrix* matrix, int col, int row) {
+  if (row < matrix->rows && col < matrix->cols &&
+      row >= 0 && col >= 0) {
+    return matrix->cells[row][col];
+  }
+  else {
+    return NULL;
+  }
+}
+
+void cloneColor(myColor* dest, myColor* src) {
+  //copy value of fields in src to dest
+  *dest = *src;
 }

@@ -1,3 +1,7 @@
+#ifndef MY_DATASTRUCTURES_H
+#define MY_DATASTRUCTURES_H
+#include <stdio.h>
+
 typedef
 struct {
   //some color
@@ -48,6 +52,7 @@ struct {
   edges* edgeScores;
   intMatrix* diff;
   colorMatrix* source;
+  myColor* averageColor;
 } profileMatrix;
 
 
@@ -126,3 +131,14 @@ void freeCharacter(character* rm);
 
 
 edges* initEdges();
+
+int getDiffAtIndex(intMatrix* diffMatrix, int col, int row);
+void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val);
+
+void setColor(colorMatrix* matrix, int row, int col, myColor* tobe);
+myColor* getColor(colorMatrix* matrix, int col, int row);
+void cloneColor(myColor* dest, myColor* src);
+void addColorToColor(myColor* dest, myColor* src);
+void divideColor(myColor* dest, int denom);
+
+#endif
