@@ -121,8 +121,8 @@ int main(int argc, char * argv[]) {
     char* str = "M";
   
     fm = MagickQueryFontMetrics(staff, creator, str);
-    fontWidth = fm[4];  //maybe use fm[9] - fm[7]
-    fontHeight = fm[5];  //maybe use fm[10] - fm[8]
+    fontWidth = fm[0];  //maybe use fm[9] - fm[7]
+    fontHeight = fm[1];  //maybe use fm[10] - fm[8]
 
       //
       
@@ -465,13 +465,26 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   //some cordinate to draw. ideally they are zero but I doubt they are
   //may need to pass as a value, since probably dependent on fm
   int x, y;
-  x = 0;
-  y = 14;
   char* codePoint = intToIMUnicode(intCode);
-  //char fn[7];
-  //sprintf(fn, "%d.jpg", tempCount++);
+  double* fm = MagickQueryFontMetrics(staff, creator, codePoint);
+  //thing for x/y to be
+  //roughly bounding (box dim - character dim) / 2?
+  //so, bounds and char dims are the reverse of what I thought they were
+  //bound is actual dim of character
+  //character width/height is actualy just the drawingWandDim?
+  int boundx = fm[9] - fm[7];
+  int boundy = fm[10] - fm[8];
+  int charx = fm[0];
+  int chary = fm[1];
+  //this does a pretty good job of centering a character
+  //doun't touch it 
+  x = (charx - boundx) / 2;
+  y = (boundy + charx) / 2;
+  
+  char fn[20];
+  sprintf(fn, "%dcharTest.jpg", intCode);
   MagickAnnotateImage(staff, creator, x, y, 0, (const char*)codePoint);
-  //MagickWriteImage(staff, fn);
+  MagickWriteImage(staff, fn);
   readWandIntoColorMatrix(staff, charColors);
   myColor* averageColor = calculateAverageColor(charColors);
   profileMatrix* charProfile = newProfileMatrix(charColors);
@@ -483,6 +496,7 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   character* completeChar = newCharacter();
   completeChar->charVal = codePoint;
   completeChar->profile = charProfile;
+  RelinquishMagickMemory(fm);
   return completeChar;
 }
 
