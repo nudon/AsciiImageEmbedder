@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-//uinsg #include <wand/MagickWand.h> wasn't working
-#include <ImageMagick-7/MagickWand/MagickWand.h>
+//if using imageMagick 6
+//#include <wand/MagickWand.h>
+//this is for imageMagick 7
+#include <MagickWand/MagickWand.h>
 
 #include "region.h"
 
