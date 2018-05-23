@@ -36,22 +36,37 @@
 
 
 void setDiffParam(int new);
+void setUseQuick(int new);
+void setEdgeScoreWeight(float new);
+void setColorScoreWeight(float new);
+void setDistanceWeight(float new);
+void setSaturationScale(float new);
+void setLightnessScale(float new);
+void setHueScale(float new);
 
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 
-character* matchProfileToCharacter(profileMatrix* prof,  character** charSet);
+character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet);
+
+edges* calculateEdgeScores(profileMatrix* prof);
 
 edges* betterPopulateEdges(profileMatrix* prof);
+
+edges* quickCalcEdges(profileMatrix* prof);
 
 float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int colDim, int rowDim, edgeCheck whichCheck);
 
 character* newCharacter();
 
-void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof);
+void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int diffParam);
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2);
 
 float compareEdges(edges* e1, edges* e2);
 
+float averageCompareResults(colorMatrix* colors);
+
 int getPixelDif(myColor* c1, myColor* c2);
+
+int getNonColorPixelDiff(myColor* c1, myColor* c2);

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 //uinsg #include <wand/MagickWand.h> wasn't working
 #include <ImageMagick-7/MagickWand/MagickWand.h>
@@ -13,13 +14,12 @@
 //then keep that in mind when tiling the original picture into subregions.
 //also would seem that I have to use monospace font, If I actually want to have recognizable output textno
 
-char* intToPFUnicode(int intCode);
+int indexOfChar(char* src, char search) ;
+int match(char* src, char* search);
 
 char* intToIMUnicode(u_int32_t intCode);
 
-void utf8Things();
-
-double diffThreshHold;
+void setFontSize(int new);
 
 void imgInit();
 
@@ -31,17 +31,15 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
 
 colorMatrix* readFileIntoColorMatrix(char* fileName);
 
-double averageCompareResults(colorMatrix* colors);
-
 colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo);
 
 myColor* calculateAverageColor(colorMatrix* colorMatrix);
 
-void matchImageToCharacters(image* pic, character** characterSet);
+void matchImageToCharacters(image* pic, characterSet* characterSet);
 
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
 
-character** buildCharacterSet(char* font, int fw, int fh, int fs);
+characterSet* buildCharacterSet(char* font, int fw, int fh, int fs);
 
 character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, colorMatrix* charColors, int intCode);
 
@@ -58,19 +56,181 @@ int hiraganaUsed = 0;
 int katakanaStart = 0x30a0;
 int katakanaEnd = 0x30ff;
 int katakanaUsed = 0;
+// "Usage is \"%s\" fileName (opt)fontSize (opt)pixleThing (opt) distanceDecay (opt)edgeWeight (opt)colorWeight\n"
+//font size, should be simple.
 
-//so, close to finally getting to run this and have infinite segfaults
-//things I need to to, implement setting unicode character ranges to use
-//setting up generation of characterSets
-//figureing out how imageMagick's draw annotaion expects utf input to look like
-//also issues of getting aspect ration of font, and setting size of font/regions.
+//pixleThing, I calculate colorDiffs by taking an hsl component, finding a difference, adding it to a total,
+//then multiplying total by pixelThing. Basically weights some components higher than others. set to 1 for equality of components.
+//or a fraction if crazy
+
+//distanceDecay, the higher this is, the worse it gets. generally don't try higher than 3
+
+//edgeWeight and colorWeight, they sort of determine closest matches
+//patching things by comparing profiles and finding the profile that had the lowest score
+//score is a sum of an seperate edgeScore and averageColorScore
+//score is weighted, so totScore = edgeScore * edgeWeight + colorScore * colorWeight
+
+//used 6 .25 25 for a bit, wher 6 was applied to font size, .25 was the pixleCompScale, and 25 was the distanceWeight
+//which is odd, because pixleComp is an int,
+//coincidentally 0 is good? so only comparing based on color
+//interesting...
+//so maybe that was just some random value. That's been happening a lot
+//overall I don't know what a good default is. time for machine learning
+
+char* flagStart = "--";
+char optValueDelim = '=';
+
+char* fontSizeOpt = "font-size";
+char* distanceDropoff = "dist";
+char* edgeWeight = "edge";
+char* colorWeight = "color";
+char* saturationScale = "saturation";
+char* lightnessScale = "lightness";
+char* hueScale = "hue";
+
+char* help = "help";
+
+void printHelpMessage() {
+  fprintf(stderr, "%s: Controls the size of the font the image gets embedded in\n", fontSizeOpt);
+  fprintf(stderr, "%s: Relates to determing how much worth is ascribed to pixels far away from an edge\nGenerally ", distanceDropoff);
+  fprintf(stderr, "%s: Sets the weight assigned to edge scores when matching profiles\n", edgeWeight);
+  fprintf(stderr, "%s: Sets the wieght assigned to the average colors of profiles\n", colorWeight);
+  fprintf(stderr, "Using HSL color scheme, look at that if this doesn't make sense: \n");
+  fprintf(stderr, "%s: Sets weight assigend to saturation differences when comparing colors\n", saturationScale);
+  fprintf(stderr, "%s: Sets weight assigend to lightness differences when comparing colors\n", lightnessScale);
+  fprintf(stderr, "%s: Sets weight assigend to hue differences when comparing colors\n", hueScale);
+}
+//also want ones for the color components
+
+
+
+void parseArgs(int argc, char* argv[]) {
+  char* token;
+  char valueText[10];
+  int intVal;
+  float floatVal;
+  int startOfValue;
+  for (int i = 1; i < argc; i++) {
+    token = argv[i];
+    startOfValue = -1;
+    if (match(token, flagStart) && match(token, fontSizeOpt)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	intVal = atoi(valueText);
+	setFontSize(intVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, distanceDropoff)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atoi(valueText);
+	setDistanceWeight(floatVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, edgeWeight)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atof(valueText);
+	setEdgeScoreWeight(floatVal);
+      }
+    }
+
+    else if (match(token, flagStart) && match(token, colorWeight)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atoi(valueText);
+	setColorScoreWeight(floatVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, saturationScale)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atof(valueText);
+	setSaturationScale(floatVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, lightnessScale)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atof(valueText);
+	setLightnessScale(floatVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, hueScale)) {
+      startOfValue = indexOfChar(token, optValueDelim);
+      if (startOfValue != -1) {
+	strcpy(valueText, token + startOfValue + 1);
+	floatVal = atof(valueText);
+	setHueScale(floatVal);
+      }
+    }
+    else if (match(token, flagStart) && match(token, help)) {
+      printHelpMessage();
+      exit(EXIT_SUCCESS);
+    }    
+    
+  }
+}
+
+int fontSize;
+
+void setFontSize(int new) {
+  if (new > 0) {
+    fontSize = new;
+  }
+}
+
+int match(char* src, char* search) {
+  int srcLen = strlen(src);
+  int searchLen = strlen(search);
+  int currentIndex = 0;
+  int srcIndex = 0;
+  int searchIndex = 0;
+  int done = 0;
+  if (srcLen >= searchLen) {
+    while(!done) {
+      srcIndex = currentIndex;
+      if(srcIndex == searchLen) {
+	return 0;
+      }
+      while (src[srcIndex] == search[searchIndex] ) {
+	if (searchIndex + 1 == searchLen) {
+	  return 1;
+	}
+	else if (srcIndex + 1 == srcLen) {
+	  return 0;
+	}
+	else {
+	  srcIndex++;
+	  searchIndex++;
+	}
+      }
+      currentIndex++;
+    }
+  }
+  return 0;
+}
+
+int indexOfChar(char* src, char search) {
+  int ret = -1;
+  int srcLen = strlen(src);
+  int index = 0;
+  while(ret == -1 && index < srcLen) {
+    if (src[index] == search) {
+      ret = index;
+    }
+    index++;
+  }
+  return ret;
+}
 
 int main(int argc, char * argv[]) {
-  //int unicodeQuote = 0x2018;
-  //char* anoTemp = "\u2018";
-  //printf("%s\n", "\u2018");
-  //printf("\u2018\n");
-  //work();
   char* fileName;
   char* fontToUse;
   //have damase and unifont as utf-8 things
@@ -80,26 +240,23 @@ int main(int argc, char * argv[]) {
   //fontToUse = "mono";
 
 
-  int fontSize;
-  //double fontRatio; //as width/heifht
-  //fontRatio = .5;
   int fontWidth;
   int fontHeight;
-  //maybe just use ratios, because vector fonts
   int imageWidth;
   int imageHeight;
   int regionWidth;
   int regionHeight;
-  
+  setFontSize(10);
+  setDistanceWeight(.2);
+  setEdgeScoreWeight(25);
+  setColorScoreWeight(1);
+  setSaturationScale(0);
+  setLightnessScale(1);
+  setHueScale(1);
   if (argc > 1) {
-    if (argc > 2) {
-      fontSize = atoi(argv[2]);
-    }
-    else {
-      fontSize = 20;
-    }
     fileName = argv[1];
     imgInit();
+    parseArgs(argc, argv);
 
     //first, get metrics of font
     MagickBooleanType status;
@@ -113,7 +270,6 @@ int main(int argc, char * argv[]) {
     assert(status != MagickFalse && "blew up setting font");
     DrawSetFontSize(creator, fontSize);
     status = PixelSetColor(white, "black");
-    assert(status != MagickFalse && "blew up at setting color of pixel");
     //for text color
     DrawSetFillColor(creator, white);
 
@@ -123,13 +279,10 @@ int main(int argc, char * argv[]) {
     fm = MagickQueryFontMetrics(staff, creator, str);
     fontWidth = fm[0];  //maybe use fm[9] - fm[7]
     fontHeight = fm[1];  //maybe use fm[10] - fm[8]
-
-      //
       
     regionWidth = fontWidth;
     regionHeight = fontHeight;
     printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
-    //load file name using whatever image library I'm using
     MagickWand* birch = NewMagickWand();
     MagickSetFirstIterator(birch);
     status = MagickReadImage(birch, fileName);
@@ -139,26 +292,33 @@ int main(int argc, char * argv[]) {
       imageHeight = (int)MagickGetImageHeight(birch);
       
       colorMatrix* entireImage = readWandIntoColorMatrix(birch, NULL);
-      setDiffParam(averageCompareResults(entireImage));
+      int diffParam = averageCompareResults(entireImage);
+      setDiffParam(diffParam);
       int regionsx = imageWidth / regionWidth;
       int regionsy = imageHeight / regionHeight;
       image* pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
       asciiUsed = 1;
-      character** characterSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
-      matchImageToCharacters(pic, characterSet);
+      //katakanaUsed = 1;
+      characterSet* charSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
+      matchImageToCharacters(pic, charSet);
+      fprintf(stderr, "writing picture to disk\n");
       drawPicToDisk(pic, fontToUse, fontSize);
       freeImage(pic);
+      freeCharacterSet(charSet);
+      freeColorMatrix(entireImage);
     }
     else {
       printf("Unable to open file %s\n", fileName);
     }
+    DestroyPixelWand(white);
+    DestroyDrawingWand(creator);
     DestroyMagickWand(staff);
     DestroyMagickWand(birch);
     RelinquishMagickMemory(fm);
     imgQuit();
   }
   else {
-    fprintf(stderr, "Give a file name\n");
+    fprintf(stderr, "Usage is \"%s\" fileName (opt)fontSize (opt)pixleThing (opt) distanceDecay (opt)edgeWeight (opt)colorWeight\n", argv[0]);
   }
   
 }
@@ -231,20 +391,19 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
       divideColor(average, numPixels);
       aProfile->averageColor = average;
       pic->profiles[regy - 1][regx - 1] = aProfile;
-
-      
     }
   }
   return pic;
 }
 
-void matchImageToCharacters(image* pic, character** characterSet) {
+void matchImageToCharacters(image* pic, characterSet* characterSet) {
   character* val;
   int regionCols = pic->numberOfRegionCols;
   int regionRows = pic->numberOfRegionRows;
   for(int regy = 1; regy <= regionRows; regy++) {
     for(int regx = 1; regx <= regionCols; regx++) {
-      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1], characterSet);
+      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1],
+				    characterSet);
       //generally won't work, need to have a function for turning charVals into actual chars
       //will probably need to call wprintf or do special cases if charVal is valid ascii
       //still nice to know that everything looks like spaces though
@@ -276,7 +435,6 @@ colorMatrix* readFileIntoColorMatrix(char* fileName) {
 colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
   //assume staff already has an Image
   PixelWand* aPixel = NewPixelWand();
-
   int height = (int)MagickGetImageHeight(staff);
   int width = (int)MagickGetImageWidth(staff);
   colorMatrix* colors;
@@ -284,7 +442,7 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
     colors = toReadTo;
   }
   else {
-    colors = newColorMatrix(width, height);    
+    colors = newColorMatrix(width, height);
   }
   myColor* color = newColor();
   for(int colIndex = 0; colIndex < width; colIndex++) {
@@ -295,6 +453,7 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo) {
     }
   }
   free(color);
+  DestroyPixelWand(aPixel);
   return colors;
 }
 
@@ -317,58 +476,12 @@ void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color) {
   //thats it
 }
 
-double averageCompareResults(colorMatrix* colors) {
-
-  //basically copy-pasted code from fillDiffMatrix
-  //if there's any bugs in one, there's bugs in the other  
-  int rows = colors->rows;
-  int cols = colors->cols;
-    int testC, testR, testNumber;
-  myColor* current, *compare;
-  int results = 0;
-  int numRuns = 0;
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-      current = getColor(colors, colIndex, rowIndex);
-      testNumber = 1;
-      while(testNumber > 0) {
-	if (testNumber == 1) {
-	  //pixel to right
-	  testC = colIndex + 1;
-	  testR = rowIndex;
-	}
-	else if (testNumber == 2) {
-	  //pixel diagnol bottom right
-	  testR = rowIndex + 1;
-	}
-	else if (testNumber == 3) {
-	  //pixel below
-	  testC = colIndex;
-	}
-	else if (testNumber == 4) {
-	  //pixel diagnol bottom left
-	  testC = colIndex - 1;
-	  //...
-	  //don't set to zero,  I increment testNumber 
-	  testNumber = -10;
-	}
-	compare = getColor(colors, testC, testR);
-	//eventually...
-	if (compare != NULL) {
-	  results += getPixelDif(current, compare);
-	  numRuns++;
-	}
-	testNumber++;
-      }            
-    }
-  }
-  return results/numRuns;
-}
 
 
 
 
-character** buildCharacterSet(char* font, int fw, int fh, int fs) {
+
+characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
   //based on the ascii/etc used variables, builds up a characterset
   //from the used ranges of characters
   int size = 0;
@@ -383,7 +496,7 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
   if (katakanaUsed) {
     size += katakanaEnd - katakanaStart + 1;
   }
-  character** charSet = malloc(sizeof(character*) * size + 1);  
+  characterSet* charSet = newCharacterSet(size);
 
   MagickBooleanType status;
   PixelWand* white = NewPixelWand();
@@ -392,24 +505,22 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
   DrawingWand* creator = NewDrawingWand();
   status =  MagickNewImage(hickory, fw,fh, white);
   assert(status != MagickFalse && "blew up at new Image");
+  //colorMatrix is shared between characters
   colorMatrix* charColors = newColorMatrix(fw, fh);
   status = DrawSetFont(creator, font);
   assert(status != MagickFalse && "blew up setting font");
   DrawSetFontSize(creator, fs);
-  status = PixelSetColor(white, "black");
-  assert(status != MagickFalse && "blew up at setting color of pixel");
+  PixelSetColor(white, "black");
   //for text color
   DrawSetFillColor(creator, white);
 
-  //fm = MagickQueryFontMetrics(hickory, creator, str);
-  //get this to get info about font. 
-  //MagickScaleImage(hickory, ceil(fm[9] - fm[7]), ceil(fm[10] - fm[8]))
   PixelWand* clearColor = NewPixelWand();
   PixelSetColor(clearColor, "white");  
   DrawSetTextUnderColor(creator, clearColor);
-  
+
+
+  DrawSetTextEncoding(creator, "UTF-8");
   int isDone = 0;
-  int usingUTF8 = 0;
   int codeStart, codeEnd, codeUsed;
   while(!isDone) {
     codeUsed = 0;
@@ -419,13 +530,11 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
       codeEnd = asciiEnd;
     }
     else if (hiraganaUsed) {
-      usingUTF8 = 1;
       codeUsed = hiraganaUsed;
       codeStart = hiraganaStart;
       codeEnd = hiraganaEnd;
     }
     else if (katakanaUsed) {
-      usingUTF8 = 1;
       codeUsed = katakanaUsed;
       codeStart = katakanaStart;
       codeEnd = katakanaEnd;
@@ -434,7 +543,8 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
     if(codeUsed) {
       for(int intCode = codeStart; intCode <= codeEnd; intCode++) {
 	MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-	charSet[index] = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
+	setCharacterAtIndex(charSet, index, buildCharacterOfCodePoint(hickory, creator, charColors, intCode));
+	getCharacterAtIndex(charSet, index)->profile->source = NULL;
 	index++;
       }
     }
@@ -452,23 +562,21 @@ character** buildCharacterSet(char* font, int fw, int fh, int fs) {
       katakanaUsed = 0;
     }
   }
-  charSet[size] = (character*) NULL;
-  
+  DestroyPixelWand(clearColor);
+  DestroyPixelWand(white);
+  //causes asserts to fail, so ?
+  //DestroyImage(GetImageFromMagickWand(hickory));
+  DestroyMagickWand(hickory);
+  DestroyDrawingWand(creator);
+  freeColorMatrix(charColors);
   return charSet;
 }
  
-
-int tempCount = 1;
 character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, colorMatrix* charColors, int intCode) {
   //takes a unicode, draws the glyph to an image provided by staff
-  //then will run other functions to build an edgescore
-  //some cordinate to draw. ideally they are zero but I doubt they are
-  //may need to pass as a value, since probably dependent on fm
-  int x, y;
+  int x, y, writingGlyphs;
   char* codePoint = intToIMUnicode(intCode);
   double* fm = MagickQueryFontMetrics(staff, creator, codePoint);
-  //thing for x/y to be
-  //roughly bounding (box dim - character dim) / 2?
   //so, bounds and char dims are the reverse of what I thought they were
   //bound is actual dim of character
   //character width/height is actualy just the drawingWandDim?
@@ -476,23 +584,29 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   int boundy = fm[10] - fm[8];
   int charx = fm[0];
   int chary = fm[1];
-  //this does a pretty good job of centering a character
-  //doun't touch it 
+  int diffParam = -1;
+  //coordinate specified is the lower-lefthand corner of drawn images
+  //this generally works, I think backTick gets killed for some reason
+  //
   x = (charx - boundx) / 2;
-  y = (boundy + charx) / 2;
-  
-  char fn[20];
-  sprintf(fn, "%dcharTest.jpg", intCode);
+  y = ((chary - boundy) / 2) + boundy;
+
   MagickAnnotateImage(staff, creator, x, y, 0, (const char*)codePoint);
-  MagickWriteImage(staff, fn);
+  writingGlyphs = 0;
+  if (writingGlyphs) {
+    char fn[20];
+    sprintf(fn, "%dcharTest.jpg", intCode);
+    MagickWriteImage(staff, fn);
+  }
   readWandIntoColorMatrix(staff, charColors);
   myColor* averageColor = calculateAverageColor(charColors);
   profileMatrix* charProfile = newProfileMatrix(charColors);
   charProfile->averageColor = averageColor;
   intMatrix* difs = createIntMatrix(charProfile);
   //might want to call averageCompare results and set param again before doing this
-  fillDiffMatrix(difs, charProfile);
-  betterPopulateEdges(charProfile);
+  //diffParam = averageCompareResults(charProfile->source);
+  fillDiffMatrix(difs, charProfile, diffParam);
+  calculateEdgeScores(charProfile);
   character* completeChar = newCharacter();
   completeChar->charVal = codePoint;
   completeChar->profile = charProfile;
@@ -570,6 +684,7 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   PixelSetColor(white, "white");
   MagickSetFirstIterator(staff);
   MagickNewImage(staff, pic->width, pic->height, white);
+  DrawSetTextEncoding(creator, "UTF-8");
   profileMatrix* aProfile;  
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
@@ -585,6 +700,8 @@ void drawPicToDisk(image* pic, char* font, int fs) {
     //printf("\n");
   }
   MagickWriteImage(staff, "output.jpg");
+  DestroyPixelWand(white);
+  DestroyPixelWand(black);
   DestroyMagickWand(staff);
   DestroyDrawingWand(creator);
 }

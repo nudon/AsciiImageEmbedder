@@ -40,16 +40,18 @@ colorMatrix* newColorMatrix(int cols, int rows) {
 }
 
 void freeColorMatrix(colorMatrix* rm) {
-  int rowMax = rm->rows;
-  int colMax = rm->cols;
-  for (int rowIndex = 0; rowIndex < rowMax; rowIndex++) {
-    for (int colIndex = 0; colIndex < colMax; colIndex++) {
-      freeColor(rm->cells[rowIndex][colIndex]);
+  if (rm != NULL) {
+    int rowMax = rm->rows;
+    int colMax = rm->cols;
+    for (int rowIndex = 0; rowIndex < rowMax; rowIndex++) {
+      for (int colIndex = 0; colIndex < colMax; colIndex++) {
+	freeColor(rm->cells[rowIndex][colIndex]);
+      }
+      free(rm->cells[rowIndex]);
     }
-    free(rm->cells[rowIndex]);
+    free(rm->cells);
+    free(rm);
   }
-  free(rm->cells);
-  free(rm);
 }
 
 character*** newCharacterMatrix(int cols, int rows) {
@@ -66,15 +68,17 @@ character*** newCharacterMatrix(int cols, int rows) {
 
 //was lazy and didn't make this a struct
 //so this will be fun
-void freeCharacterMatrix(character*** rm) {
-  int colIndex = 0;
-  int rowIndex = 0;
-  while(rm[rowIndex] != NULL) {
-    while(rm[rowIndex][colIndex] != NULL) {
-      free(rm[rowIndex][colIndex]);
-      colIndex++;
+//actually this sucks, because shared characters get double freed
+//same solution as freeImage, just free the row/collumn mallocs
+//freeCharSet should handle the characters assigned
+//don't even call this then, just freem rows/columns in freeImage
+//when I know the dimensions of the matrix. OR hand those in, either way
+void freeCharacterMatrix(character*** rm, int cols, int rows) {
+  for(int rowIndex = 0; rowIndex < rows; rowIndex++){
+    //don't actually need this, not freeing characters here
+    for(int colIndex = cols; colIndex < cols; colIndex++) {
     }
-    rowIndex++;
+    free(rm[rowIndex]);
   }
   free(rm);
 }
@@ -145,16 +149,44 @@ image* newImage(colorMatrix* entireImage) {
 void freeImage(image* rm) {
   int maxCols = rm->numberOfRegionCols;
   int maxRows = rm->numberOfRegionRows;
+  freeCharacterMatrix(rm->filledCharacterss, maxCols, maxRows);
   for(int rowIndex = 0; rowIndex < maxRows; rowIndex++) {
     for(int colIndex = 0; colIndex < maxCols; colIndex++) {
       freeProfileMatrix(rm->profiles[rowIndex][colIndex]);
+      //no, free these while traversing characterSet
+      //otherwise double frees occur
+      //freeCharacter(rm->filledCharacterss[rowIndex][colIndex]);
     }
     free(rm->profiles[rowIndex]);
-    free(rm->filledCharacterss[rowIndex]);
   }
   free(rm->profiles);
-  free(rm->filledCharacterss);
   free(rm);
+}
+
+characterSet* newCharacterSet(int size) {
+  characterSet * new = malloc(sizeof(characterSet));
+  new->characters = malloc(sizeof(character*) * size);
+  new->length = size;
+  for (int index = 0; index < size; index++) {
+    new->characters[index] = NULL;
+  }
+  return new;
+}
+
+void freeCharacterSet(characterSet* rm) {
+  for(int index = 0; index < rm->length; index++) {
+    freeCharacter(getCharacterAtIndex(rm, index));
+  }
+  free(rm->characters);
+  free(rm);
+}
+
+character* getCharacterAtIndex(characterSet* set, int index) {
+  return set->characters[index];
+}
+
+void setCharacterAtIndex(characterSet* set, int index, character* newCharacter) {
+  set->characters[index] = newCharacter;
 }
 
 character* newCharacter() {

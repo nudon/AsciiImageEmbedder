@@ -56,7 +56,6 @@ struct {
 } profileMatrix;
 
 
-
 //things for each character 
 typedef
 struct {
@@ -65,6 +64,12 @@ struct {
   char* charVal;
   profileMatrix * profile;
 } character;
+
+typedef
+struct {
+  character** characters;
+  int length;
+} characterSet;
 
 //will contain image, some dimensions, probably some aspect ratio things as well,
 //as well as heigh/width of subRects
@@ -96,19 +101,13 @@ enum {
 } edgeCheck;
 
 profileMatrix* newProfileMatrix(colorMatrix* colors);
-
 void freeProfileMatrix(profileMatrix* rm);
 
 colorMatrix* newColorMatrix(int cols, int rows);
-
 void freeColorMatrix(colorMatrix* rm);
 
 character*** newCharacterMatrix(int cols, int rows);
-
-
-//was lazy and didn't make this a struct
-//so this will be fun
-void freeCharacterMatrix(character*** rm);
+void freeCharacterMatrix(character*** rm, int cols, int rows);
 
 intMatrix* createIntMatrix(profileMatrix* prof);
 
@@ -126,6 +125,15 @@ void freeImage(image* rm);
 character* newCharacter();
 
 character* makecharacter(char* value);
+
+characterSet* newCharacterSet(int size);
+
+void freeCharacterSet(characterSet* rm);
+
+character* getCharacterAtIndex(characterSet* set, int index);
+
+void setCharacterAtIndex(characterSet* set, int index, character* newCharacter);
+
 
 void freeCharacter(character* rm);
 
