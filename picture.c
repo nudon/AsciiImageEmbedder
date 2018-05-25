@@ -14,10 +14,13 @@
 //realized that I'm not accounting for the spaces between lines or characters.
 //might not matter, if they do would have to do some more calculations. Essentially find out how big those gaps are
 //then keep that in mind when tiling the original picture into subregions.
-//also would seem that I have to use monospace font, If I actually want to have recognizable output textno
+//also would seem that I have to use monospace font, If I actually want to have recognizable output text
 
-int indexOfChar(char* src, char search) ;
+//also, issue of darker regions getting represented as whitespace. 
+
+int indexOfChar(char* src, char search);
 int match(char* src, char* search);
+int matchFlag(char* token, char* flag );
 
 char* intToIMUnicode(u_int32_t intCode);
 
@@ -44,6 +47,8 @@ void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
 characterSet* buildCharacterSet(char* font, int fw, int fh, int fs);
 
 character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, colorMatrix* charColors, int intCode);
+
+int findAndStoreMatch(char* token, char* search, int resultSize, char* result);
 
 void drawPicToDisk(image* pic, char* font, int fs);
 
@@ -72,25 +77,29 @@ int katakanaUsed = 0;
 //score is a sum of an seperate edgeScore and averageColorScore
 //score is weighted, so totScore = edgeScore * edgeWeight + colorScore * colorWeight
 
-//used 6 .25 25 for a bit, wher 6 was applied to font size, .25 was the pixleCompScale, and 25 was the distanceWeight
-//which is odd, because pixleComp is an int,
-//coincidentally 0 is good? so only comparing based on color
-//interesting...
-//so maybe that was just some random value. That's been happening a lot
-//overall I don't know what a good default is. time for machine learning
-
 char* flagStart = "--";
 char optValueDelim = '=';
 
 char* fontSizeOpt = "font-size";
+char* useQuickCalc = "useQuickCalc";
+char* useAverageReduce = "useAverageReduce";
 char* distanceDropoff = "dist";
 char* edgeWeight = "edge";
 char* colorWeight = "color";
 char* saturationScale = "saturation";
 char* lightnessScale = "lightness";
 char* hueScale = "hue";
+char* hitWeight = "hitWeight";
+char* missWeight = "missWeight";
+char* hitDecay = "hitDecay";
+char* missDecay = "missDecay";
+char* outputFile = "output";
 
 char* help = "help";
+
+int pathLen = 255;
+
+char* outputFileName;
 
 void printHelpMessage() {
   fprintf(stderr, "%s: Controls the size of the font the image gets embedded in\n", fontSizeOpt);
@@ -108,76 +117,86 @@ void printHelpMessage() {
 
 void parseArgs(int argc, char* argv[]) {
   char* token;
-  char valueText[10];
+  int sizeOfValue = 10;
+  char valueText[sizeOfValue];
   int intVal;
   float floatVal;
-  int startOfValue;
   for (int i = 1; i < argc; i++) {
     token = argv[i];
-    startOfValue = -1;
-    if (match(token, flagStart) && match(token, fontSizeOpt)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	intVal = atoi(valueText);
-	setFontSize(intVal);
-      }
+    if (findAndStoreMatch(token, fontSizeOpt, sizeOfValue, valueText) != -1) {
+      intVal = atoi(valueText);
+      setFontSize(intVal);
     }
-    else if (match(token, flagStart) && match(token, distanceDropoff)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atoi(valueText);
-	setDistanceWeight(floatVal);
-      }
+    else if (findAndStoreMatch(token, distanceDropoff, sizeOfValue, valueText) != -1) {
+      floatVal = atoi(valueText);
+      setDistanceWeight(floatVal);
     }
-    else if (match(token, flagStart) && match(token, edgeWeight)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atof(valueText);
-	setEdgeScoreWeight(floatVal);
-      }
+    else if (findAndStoreMatch(token, edgeWeight, sizeOfValue, valueText) != -1) {
+      floatVal = atof(valueText);
+      setEdgeScoreWeight(floatVal);
     }
-
-    else if (match(token, flagStart) && match(token, colorWeight)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atoi(valueText);
-	setColorScoreWeight(floatVal);
-      }
+    else if (findAndStoreMatch(token, colorWeight, sizeOfValue, valueText) != -1) {
+      floatVal = atoi(valueText);
+      setColorScoreWeight(floatVal);
     }
-    else if (match(token, flagStart) && match(token, saturationScale)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atof(valueText);
-	setSaturationScale(floatVal);
-      }
+    else if (findAndStoreMatch(token, saturationScale, sizeOfValue, valueText) != -1) {
+      floatVal = atof(valueText);
+      setSaturationScale(floatVal);
     }
-    else if (match(token, flagStart) && match(token, lightnessScale)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atof(valueText);
-	setLightnessScale(floatVal);
-      }
+    else if (findAndStoreMatch(token, lightnessScale, sizeOfValue, valueText) != -1) {
+      floatVal = atof(valueText);
+      setLightnessScale(floatVal);
     }
-    else if (match(token, flagStart) && match(token, hueScale)) {
-      startOfValue = indexOfChar(token, optValueDelim);
-      if (startOfValue != -1) {
-	strcpy(valueText, token + startOfValue + 1);
-	floatVal = atof(valueText);
-	setHueScale(floatVal);
-      }
+    else if (findAndStoreMatch(token, hueScale, sizeOfValue, valueText) != -1) {
+      floatVal = atof(valueText);
+      setHueScale(floatVal);
     }
-    else if (match(token, flagStart) && match(token, help)) {
+    else if (findAndStoreMatch(token, hitWeight, 10, valueText) != -1) {
+      floatVal = atof(valueText);
+      setHitWeight(floatVal);
+    }
+    else if (findAndStoreMatch(token, hitDecay, 10, valueText) != -1) {
+      floatVal = atof(valueText);
+      setHitDecay(floatVal);
+    }
+    else if (findAndStoreMatch(token, missWeight, 10, valueText) != -1) {
+      floatVal = atof(valueText);
+      setMissWeight(floatVal);
+    }
+    else if (findAndStoreMatch(token, missDecay, 10, valueText) != -1) {
+      floatVal = atof(valueText);
+      setMissDecay(floatVal);
+    }
+    else if (findAndStoreMatch(token, outputFile, pathLen, outputFileName) != -1)  {
+      //don't do anything?
+    }
+    else if (matchFlag(token, useQuickCalc)) {
+      setUseQuick(1);
+    }
+    else if (matchFlag(token, useAverageReduce)) {
+      setUseAverageReduce(1);
+    }
+    else if (matchFlag(token, help)) {
       printHelpMessage();
       exit(EXIT_SUCCESS);
     }    
     
   }
+}
+
+int matchFlag(char* token, char* flag ) {
+  return (match(token, flagStart) && match(token, flag));
+}
+
+int findAndStoreMatch(char* token, char* search, int resultSize, char* result) {
+  int ret = -1;
+  if (match(token, flagStart) && match(token, search)) {
+    ret = indexOfChar(token, optValueDelim);
+    if (ret != -1) {
+      strncpy(result, token + ret + 1, resultSize);
+    }
+  }
+  return ret;
 }
 
 int fontSize;
@@ -249,12 +268,20 @@ int main(int argc, char * argv[]) {
   int regionWidth;
   int regionHeight;
   setFontSize(10);
-  setDistanceWeight(.2);
-  setEdgeScoreWeight(25);
-  setColorScoreWeight(1);
+  setUseQuick(0);
+  setUseAverageReduce(0);
+  setDistanceWeight(.25);
+  setEdgeScoreWeight(1);
+  setColorScoreWeight(0);
   setSaturationScale(0);
   setLightnessScale(1);
   setHueScale(1);
+  setHitDecay(.2);
+  setMissDecay(.8);
+  setHitWeight(1);
+  setMissWeight(1);
+  outputFileName = malloc(sizeof(char) * pathLen);
+  strcpy(outputFileName, "output.jpg");
   if (argc > 1) {
     fileName = argv[1];
     imgInit();
@@ -303,7 +330,7 @@ int main(int argc, char * argv[]) {
       //katakanaUsed = 1;
       characterSet* charSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
       matchImageToCharacters(pic, charSet);
-      fprintf(stderr, "writing picture to disk\n");
+      fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
       drawPicToDisk(pic, fontToUse, fontSize);
       freeImage(pic);
       freeCharacterSet(charSet);
@@ -701,7 +728,7 @@ void drawPicToDisk(image* pic, char* font, int fs) {
     }
     //printf("\n");
   }
-  MagickWriteImage(staff, "output.jpg");
+  MagickWriteImage(staff, outputFileName);
   DestroyPixelWand(white);
   DestroyPixelWand(black);
   DestroyMagickWand(staff);

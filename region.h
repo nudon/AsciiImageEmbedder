@@ -35,6 +35,8 @@
 //backWard, rowMax    , colMax
 
 
+void setUseQuick(int new);
+void setUseAverageReduce(int new);
 void setDiffParam(int new);
 void setUseQuick(int new);
 void setEdgeScoreWeight(float new);
@@ -43,6 +45,10 @@ void setDistanceWeight(float new);
 void setSaturationScale(float new);
 void setLightnessScale(float new);
 void setHueScale(float new);
+void setHitDecay(float new);
+void setHitWeight(float new);
+void setMissDecay(float new);
+void setMissWeight(float new);
 
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
@@ -54,6 +60,8 @@ edges* calculateEdgeScores(profileMatrix* prof);
 edges* betterPopulateEdges(profileMatrix* prof);
 
 edges* quickCalcEdges(profileMatrix* prof);
+
+void averageReduceEdgeScores(edges* edges);
 
 float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int colDim, int rowDim, edgeCheck whichCheck);
 
