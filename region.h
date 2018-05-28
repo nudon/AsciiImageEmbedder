@@ -76,5 +76,6 @@ float compareEdges(edges* e1, edges* e2);
 float averageCompareResults(colorMatrix* colors);
 
 int getPixelDif(myColor* c1, myColor* c2);
+int getPixelDifByArgs(myColor* c1, myColor* c2, float argSatScale, float argHueScale, float argLightScale);
 
 int getNonColorPixelDiff(myColor* c1, myColor* c2);

@@ -25,17 +25,6 @@ static float globHitWeight;
 static float globMissDecay;
 static float globMissWeight;
 
-//@ considered dangerouse
-//considering how to limit how many @'s there are
-//indicative that there'something wrong with my code
-//considering extermination strategies
-//could prioritize picking characters with the highest matching edgesscore, instead of their overall match.
-//want to pinpoint actual issue
-//think it's just that @ is a dense character with lots of edge matches
-//thought setting hit/missDecay would fix, it didn't
-//thought useing the averageReduce would work, it didn't
-//using a new matching algorithim may work.
-
 static character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
 void setDiffParam(int new) {
@@ -256,8 +245,9 @@ edges* quickCalcEdges(profileMatrix* prof) {
   float curRat = 0;
   float shiftRat = 0;
   int diffVal;
-  for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
-    for (int colIndex = 0; colIndex < colDim; colIndex++) {
+  //the int matrix is the one matrix I made which has the inner index as rows instead of columns
+  for (int colIndex = 0; colIndex < colDim; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
       //just going to be 8 if statements. Could be worse
       //might be worse for diags, will see. worstace just do a regular traversal and  no that's dumb
       //will figure that out. might just have to disable
@@ -937,26 +927,15 @@ float averageCompareResults(colorMatrix* colors) {
 }
 
 int getPixelDif(myColor* c1, myColor* c2) {
-  //what would be a good method for this
-  //want to prioritize lightness more than hue more than saturation.
-  //I think? need to experiment
-
-  //had lightness, hue, then sat as original ranking
-  //was alright, didn't work well with matching based on colorDiffScore
-  //trying light, sat, hue, hoping it help
   int difference = 0;
   int temp;
   if (c1 != NULL && c2 != NULL) {
     difference = (int)(fabs(c1->sat - c2->sat) * saturationScale);
-    //since hue wraps around, have to do some odd things
-    //have hue == 1 and hue == 359. difference should be 2
-    
     temp = (int)(fabs(c1->hue - c2->hue));
     if (temp > 180) {
       temp = 360 - temp;
     }
     difference += temp * hueScale;
-    difference += (int)(fabs(c1->hue - c2->hue) * hueScale);
     difference += (int)(fabs(c1->lightness - c2->lightness) * lightnessScale);
   }
   else {
@@ -966,21 +945,4 @@ int getPixelDif(myColor* c1, myColor* c2) {
   
   return difference;
 }
-
-int getNonColorPixelDiff(myColor* c1, myColor* c2) {
-  int difference;
-  int scaleAmount = pixleCompScale;
-  if (c1 != NULL && c2 != NULL) {
-    difference = (int)fabs(c1->lightness - c2->lightness);
-    difference *= scaleAmount;
-    difference += (int)fabs(c1->sat - c2->sat);
-  }
-  else {
-    fprintf(stderr,"Comparing null pixel(s)\n");
-    difference = 0;
-  }
-
-  return difference;
-}
-
 
