@@ -11,7 +11,7 @@ extern int diffErr;
 static int diffParam = -1;
 static int useQuick = 0;
 static int useAverageReduce = 0;
-static int pixleCompScale = 1;
+static int autoGenColorScale = 0;
 static float edgeScoreWeight = 1;
 static float colorScoreWeight = 1 ;
 static float distanceWeight = -1;
@@ -41,6 +41,15 @@ void setUseAverageReduce(int new) {
   useAverageReduce = new;
 }
 
+void setAutoGenColorScale(int new) {
+  autoGenColorScale = new;
+}
+
+int getAutoGenColorScale() {
+  return autoGenColorScale;
+}
+
+
 void setEdgeScoreWeight(float new) {
   edgeScoreWeight = new;
 }
@@ -58,18 +67,21 @@ void setDistanceWeight(float new) {
 void setSaturationScale(float new) {
   if (new >= 0) {
     saturationScale = new;
+    fprintf(stderr, "sat Scale is %f\n", new);
   }
 }
 
 void setLightnessScale(float new) {
   if (new >= 0) {
     lightnessScale = new;
+    fprintf(stderr, "light Scale is %f\n", new);
   }
 }
 
 void setHueScale(float new) {
   if (new >= 0) {
     hueScale = new;
+    fprintf(stderr, "hue Scale is %f\n", new);
   }
 }
 
@@ -169,6 +181,7 @@ character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) 
     prof->diff = diff;
     if (prof->source != NULL) {
       //locDiffParam = averageCompareResults(prof->source);
+      //autoSetColorComponentScale(prof->source);
       fillDiffMatrix(diff, prof, locDiffParam);
     }
     else {
@@ -884,7 +897,7 @@ float averageCompareResults(colorMatrix* colors) {
   //if there's any bugs in one, there's bugs in the other  
   int rows = colors->rows;
   int cols = colors->cols;
-    int testC, testR, testNumber;
+  int testC, testR, testNumber;
   myColor* current, *compare;
   long results = 0;
   int numRuns = 0;
@@ -928,15 +941,10 @@ float averageCompareResults(colorMatrix* colors) {
 
 int getPixelDif(myColor* c1, myColor* c2) {
   int difference = 0;
-  int temp;
   if (c1 != NULL && c2 != NULL) {
-    difference = (int)(fabs(c1->sat - c2->sat) * saturationScale);
-    temp = (int)(fabs(c1->hue - c2->hue));
-    if (temp > 180) {
-      temp = 360 - temp;
-    }
-    difference += temp * hueScale;
-    difference += (int)(fabs(c1->lightness - c2->lightness) * lightnessScale);
+    difference = saturationDif(c1, c2) * saturationScale;
+    difference += hueDif(c1, c2) * hueScale;
+    difference += lightnessDif(c1, c2) * lightnessScale;
   }
   else {
     fprintf(stderr,"Comparing null pixel(s)\n");
@@ -946,3 +954,87 @@ int getPixelDif(myColor* c1, myColor* c2) {
   return difference;
 }
 
+void autoSetColorComponentScale(colorMatrix* source) {
+  int rows = source->rows;
+  int cols = source->cols;
+  int testC, testR, testNumber;
+  myColor* current, *compare;
+  long totHueDif = 0;
+  long totLightnessDif = 0;
+  long totSaturationDif = 0;
+  int totalCompares = 0;
+  for (int colIndex = 0; colIndex < cols; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      current = getColor(source, colIndex, rowIndex);
+      testNumber = 1;
+      while(testNumber > 0) {
+	if (testNumber == 1) {
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	}
+	else if (testNumber == 2) {
+	  //pixel diagnol bottom right
+	  testR = rowIndex + 1;
+	}
+	else if (testNumber == 3) {
+	  //pixel below
+	  testC = colIndex;
+	}
+	else if (testNumber == 4) {
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  //...
+	  //don't set to zero,  I increment testNumber 
+	  testNumber = -10;
+	}
+  	compare = getColor(source, testC, testR);
+	//eventually...
+	if (compare != NULL) {
+	  totSaturationDif += saturationDif(current, compare);
+	  totHueDif += hueDif(current, compare);
+	  totLightnessDif += lightnessDif(current,  compare);
+	  totalCompares++;
+	}
+	testNumber++;
+      }            
+    }
+  }
+  //so, I think that if average differences in a color component were low, want the scale on that to be high?
+  //I don't really know,  but I'll try a basic inverse relationship between average compare and scale
+  //having it be 1 / num seems weak, will try having numerator be half of max compnent diff
+  //also I need to change my hue thing once again, when I'm scaling colors I multuply hue by 255, so it's max range isn't 360.
+  //max hue diff is only 255 / 2, since hues' wrap around
+  if (totHueDif != 0) {
+    //setHueScale((255 / 4) / ((double)totHueDif / totalCompares));
+    setHueScale(((float)totHueDif / totalCompares));
+  }
+  if (totLightnessDif != 0) {
+    //setLightnessScale((255 / 2) / ((double)totLightnessDif / totalCompares));
+    setLightnessScale((float)totLightnessDif / totalCompares);
+  }
+  if (totSaturationDif != 0) {
+    //setSaturationScale((255 / 2) / ((double)totSaturationDif / totalCompares));
+    setSaturationScale(((float)totSaturationDif / totalCompares));
+    //setSaturationScale(0);
+  }
+}
+
+
+  
+int saturationDif(myColor* c1, myColor* c2) {
+  return (int)(fabs(c1->sat - c2->sat));
+}
+
+int lightnessDif(myColor* c1, myColor* c2) {
+  return (int)(fabs(c1->lightness - c2->lightness));
+}
+  
+int hueDif(myColor* c1, myColor* c2) {
+  int temp = 0;
+  temp = (int)(fabs(c1->hue - c2->hue));
+  if (temp > (255 / 2)) {
+    temp = 255 - temp;
+  }
+  return temp;
+}

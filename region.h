@@ -1,3 +1,6 @@
+#ifndef FILE_REGION_SEEN
+#define FILE_REGION_SEEN
+
 //these will store whatever metadata I want
 #include "dataStructures.h"
 
@@ -37,6 +40,8 @@
 
 void setUseQuick(int new);
 void setUseAverageReduce(int new);
+void setAutoGenColorScale(int new);
+int getAutoGenColorScale();
 void setDiffParam(int new);
 void setUseQuick(int new);
 void setEdgeScoreWeight(float new);
@@ -77,5 +82,14 @@ float averageCompareResults(colorMatrix* colors);
 
 int getPixelDif(myColor* c1, myColor* c2);
 int getPixelDifByArgs(myColor* c1, myColor* c2, float argSatScale, float argHueScale, float argLightScale);
+int saturationDif(myColor* c1, myColor* c2);
+int lightnessDif(myColor* c1, myColor* c2);
+int hueDif(myColor* c1, myColor* c2);
+
 
 int getNonColorPixelDiff(myColor* c1, myColor* c2);
+
+
+void autoSetColorComponentScale(colorMatrix* source);
+
+#endif
