@@ -58,6 +58,8 @@ void setMissWeight(float new);
 int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 
+profileMatrix* generateProfileFromColor(colorMatrix* colors);
+
 character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet);
 
 edges* calculateEdgeScores(profileMatrix* prof);

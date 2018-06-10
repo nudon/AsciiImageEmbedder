@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "region.h"
-#include "dataStructures.h"
+#include "picture.h"
+//#include "dataStructures.h"
 
 extern int diffYes;
 extern int diffNo;
@@ -67,21 +68,21 @@ void setDistanceWeight(float new) {
 void setSaturationScale(float new) {
   if (new >= 0) {
     saturationScale = new;
-    fprintf(stderr, "sat Scale is %f\n", new);
+    //fprintf(stderr, "sat Scale is %f\n", new);
   }
 }
 
 void setLightnessScale(float new) {
   if (new >= 0) {
     lightnessScale = new;
-    fprintf(stderr, "light Scale is %f\n", new);
+    //fprintf(stderr, "light Scale is %f\n", new);
   }
 }
 
 void setHueScale(float new) {
   if (new >= 0) {
     hueScale = new;
-    fprintf(stderr, "hue Scale is %f\n", new);
+    //fprintf(stderr, "hue Scale is %f\n", new);
   }
 }
 
@@ -168,6 +169,17 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
   if (prof->diff == NULL) {
     prof->diff = detectedEdges;
   }
+}
+
+profileMatrix* generateProfileFromColor(colorMatrix* colors) {
+  int diffParam = -1;
+  profileMatrix* profile = newProfileMatrix(colors);
+  myColor* averageColor = calculateAverageColor(colors);
+  profile->averageColor = averageColor;
+  intMatrix* difs = createIntMatrix(profile);
+  fillDiffMatrix(difs, profile, diffParam);
+  calculateEdgeScores(profile);
+  return profile;
 }
 
 
@@ -775,10 +787,12 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 }
 
 
+float compareLightmarks(lightmark* lm1, lightmark* lm2);
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float totScore, edgeScore, avgColorScore; 
   edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
   avgColorScore = getPixelDif(p1->averageColor, p2->averageColor);
+  avgColorScore = compareLightmarks(p1->mark, p2->mark);
   edgeScore *= edgeScoreWeight;
   avgColorScore *= colorScoreWeight;
   totScore = edgeScore + avgColorScore;
@@ -844,6 +858,13 @@ float compareEdges(edges* e1, edges* e2) {
     }
     delta += fabs(f1 - f2);
   }
+  return delta;
+}
+
+float compareLightmarks(lightmark* lm1, lightmark* lm2) {
+  float delta = 0;
+  delta += fabs(lm1->differenceFromMostLight - lm2->differenceFromMostLight);
+  delta += fabs(lm1->differenceFromMostDark - lm2->differenceFromMostDark);
   return delta;
 }
 

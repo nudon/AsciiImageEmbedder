@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <math.h>
 #include "dataStructures.h"
 
 int diffYes = 1;
@@ -14,6 +15,7 @@ profileMatrix* newProfileMatrix(colorMatrix* colors) {
   new->cols = colors->cols;
   new->edgeScores = NULL;
   new->diff = NULL;
+  new->mark = NULL;
   return new;
 }
 
@@ -22,6 +24,7 @@ void freeProfileMatrix(profileMatrix* rm) {
   free(rm->edgeScores);
   freeColorMatrix(rm->source);
   freeColor(rm->averageColor);
+  free(rm->mark);
   free(rm);
 }
 
@@ -262,3 +265,108 @@ void cloneColor(myColor* dest, myColor* src) {
   //copy value of fields in src to dest
   *dest = *src;
 }
+
+//stuff for lightmarks
+lightmark* newLightmark(myColor* avgColor) {
+  lightmark* new = malloc(sizeof(lightmark));
+  new->color = avgColor;
+  new->differenceFromMostLight = 0;
+  new->differenceFromMostDark = 0;
+  return new;
+}
+
+gen_list* createLightmarkListFromImage(image* pic) {
+  //iterater over profileMatricies, generate lightmarks, set fields, fill list
+  int cols = pic->numberOfRegionCols;
+  int rows = pic->numberOfRegionRows;
+  lightmark* mark;
+  gen_list* list = createGen_list();
+  
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      mark = attatchLightmarkToProfile(pic->profiles[row][col]);
+      //still not sure if I want to use wrappers to I don't have to touch typecasting directly. 
+      appendToGen_list(list, createGen_node(mark));
+    }
+  }
+  return list;
+}
+
+gen_list* createLightmarkListFromCharacterSet(characterSet* set) {
+  //iteracte over set,  do the things
+  int length = set->length;
+  lightmark* mark;
+  gen_list* list = createGen_list();
+  for(int index = 0; index < length; index++) {
+    mark = attatchLightmarkToProfile(set->characters[index]->profile);
+    appendToGen_list(list, createGen_node(mark));
+  }
+  return list;
+}
+
+lightmark* attatchLightmarkToProfile(profileMatrix* prof) {
+  lightmark* new = newLightmark(prof->averageColor);
+  prof->mark = new;
+  return new;
+}
+
+//nead to create a list, traverst list for most light and dark
+//then retraverse list and fill out fields.
+void fillOutFields(gen_list* l) {
+  myColor Dark;
+  myColor Light;
+  findLADExtremes(l, &Dark, &Light);
+  storeLightmarkDifferences(l, &Dark, &Light);
+}
+
+
+void findLADExtremes(gen_list* l, myColor* darkColor, myColor* lightColor) {
+  myColor* dark, *light;
+  dark = NULL;
+  light = NULL;
+  float darkVal, lightVal, tempVal;
+  lightmark* currData;
+  gen_node* current = l->start;
+  while(current != NULL) {
+    currData = (lightmark*)current->stored;
+    if (dark == NULL) {
+      //need to change to current->data, likely need casting
+      dark = currData->color;
+      light = currData->color;
+      darkVal = dark->lightness;
+      lightVal = light->lightness;
+    }
+    else {
+      tempVal = currData->color->lightness;
+      if (tempVal > lightVal) {
+	light = currData->color;
+	lightVal = tempVal;
+      }
+      else if (tempVal < darkVal) {
+	dark = currData->color;
+	darkVal = tempVal;
+      }
+    }
+    current = current->next;
+  }
+  *darkColor = *dark;
+  *lightColor = *light;
+}
+
+
+void storeLightmarkDifferences(gen_list* l, myColor* darkColor, myColor* lightColor) {
+  float darkVal, lightVal, tempVal;
+  lightVal =lightColor->lightness;
+  darkVal = darkColor->lightness;
+  lightmark* currData;
+  gen_node* current = l->start;
+  while(current != NULL) {
+    currData = (lightmark*)current->stored;
+    tempVal = currData->color->lightness;
+    currData->differenceFromMostLight = fabs(lightVal - tempVal);
+    currData->differenceFromMostDark = fabs(darkVal - tempVal);
+    current = current->next;
+  }
+}
+
+

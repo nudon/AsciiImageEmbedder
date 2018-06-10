@@ -16,6 +16,55 @@
 //kind of fixed that by doing something. Yeah, started assiging lightness non-zero values. like between .02 and .01
 //sometimes that works, sometimes it doesn't
 
+//also, non-ascii blocks are kind of broke, just prints whatever
+//odd thing is, results are random
+//odd, because when I was looking at the raw output of my incrementUTFcodepoint
+//seemed like things where good
+//maybe it's an issue in intToIMUnicode
+//otherwise, not sure where I'm getting the random results.
+
+//kind of an old idea that resurfaced
+//realize why I didn't do it, but perhaps take average colors of all regions
+//would have to be darkness
+//sort them into a list
+//then do same for all the drawn characters
+//these things have to be sorted, mind
+//then, for a color, find in list. note index, and lenght. Have index/length = c
+//for character array, with it's own length, find it's index = c * length
+//have something where color at index  is c percent darker/lighter then other colors
+//and have character at index is also c percent darker/lighter than other colors
+
+//what this doesn't do, solve case where distrubution of colors is starkly different.
+//say one picture is just varying shades of black, the lightest color would get matched to whitespace, since they are both lighter than every other element in their set.
+
+//still, have to somehow bridge gap between text not being as dark totally black region
+//could extend to use higher/weirder unicode ranges,
+
+//alternative thingy, find the darkest element in region and character sets
+//for each element of each set, store difference between it and the darkest element.
+//match things based on having their differences being near the same(the difference in their difference being zero).
+//could also do a similar thing for lightness, and match based on both of those
+//so in general it will match regions with characters which are both similarly differenct from their respective sets most light and dark elements.
+
+//I think that one should work out well. just need to work out how to do it.
+//have some data structure which has a color matrix or just an average color,
+//and maybe a union of a pointer to a character and region.
+//go contruct a list of them , find the highest and lowest darkness in list
+//then compute diffenece in both, store lightdiff and dark diff in struct.
+//then, take from the region list, find closest match in character list
+//there's the match. not usable with my matching system though
+//better to just return (fabs(ld1 - ld2) + fabs(dd1 - dd2)) and use in existing compare
+//infrastructure is still needed though
+
+
+//considering i felt like garbage I got it working pretty quickly
+//only issue is that it segfaults randomly
+//annoying thing is that it passes valgrind fine.
+//making me think it's a race condition somehow. only there is no multithreading
+//might try running valgrind more
+//but it never segfaulting is suspicious
+//issue is that average colors in profiles of charset are off. 
+
 
 //unicode block ranges
 
@@ -295,7 +344,7 @@ int main(int argc, char * argv[]) {
   setHiraganaUsed(0);
   setKatakanaUsed(0);
   setEdgeScoreWeight(1);
-  setColorScoreWeight(0);
+  setColorScoreWeight(1);
   setSaturationScale(0);
   setLightnessScale(1);
   setHueScale(1);
@@ -355,6 +404,13 @@ int main(int argc, char * argv[]) {
       int regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
       image* pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
       characterSet* charSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
+      gen_list* picList = createLightmarkListFromImage(pic);
+      gen_list* charList = createLightmarkListFromCharacterSet(charSet);
+      fillOutFields(picList);
+      fillOutFields(charList);
+      //actually free the list and all nodes, but not data in nodes
+      freeGen_list(picList);
+      freeGen_list(charList);
       matchImageToCharacters(pic, charSet);
       fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
       drawPicToDisk(pic, fontToUse, fontSize);

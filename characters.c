@@ -153,14 +153,7 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
     MagickWriteImage(staff, fn);
   }
   readWandIntoColorMatrix(staff, charColors);
-  myColor* averageColor = calculateAverageColor(charColors);
-  profileMatrix* charProfile = newProfileMatrix(charColors);
-  charProfile->averageColor = averageColor;
-  intMatrix* difs = createIntMatrix(charProfile);
-  //might want to call averageCompare results and set param again before doing this
-  //diffParam = averageCompareResults(charProfile->source);
-  fillDiffMatrix(difs, charProfile, diffParam);
-  calculateEdgeScores(charProfile);
+  profileMatrix* charProfile = generateProfileFromColor(charColors);  
   character* completeChar = newCharacter();
   completeChar->charVal = codePoint;
   completeChar->profile = charProfile;
