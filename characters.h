@@ -5,6 +5,8 @@
 #include "dataStructures.h"
 #include "picture.h"
 
+static int sizeOfIMCharCode = 5;
+
 void setAsciiUsed(int new);
 void setHiraganaUsed(int new);
 void setKatakanaUsed(int new);

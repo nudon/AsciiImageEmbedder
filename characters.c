@@ -44,7 +44,7 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
     size += katakanaSize;
   }
   characterSet* charSet = newCharacterSet(size);
-
+  character* symbol;
   MagickBooleanType status;
   PixelWand* white = NewPixelWand();
   PixelSetColor(white, "white");
@@ -90,9 +90,12 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
     if(codeUsed) {
       for(int intCode = codeStart; intCode <= codeEnd; intCode = incrementUTF8CodePoint(intCode)) {
 	MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
-	setCharacterAtIndex(charSet, index, buildCharacterOfCodePoint(hickory, creator, charColors, intCode));
-	getCharacterAtIndex(charSet, index)->profile->source = NULL;
-	index++;
+	symbol = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
+	if (symbol != NULL) {
+	  setCharacterAtIndex(charSet, index, symbol);
+	  getCharacterAtIndex(charSet, index)->profile->source = NULL;
+	  index++;
+	}
       }
     }
     else {
@@ -123,6 +126,7 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   //takes a unicode, draws the glyph to an image provided by staff
   int x, y, writingGlyphs;
   char* codePoint = intToIMUnicode(intCode);
+
   double* fm = MagickQueryFontMetrics(staff, creator, codePoint);
   //so, bounds and char dims are the reverse of what I thought they were
   //bound is actual dim of character
@@ -144,24 +148,30 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   DrawSetGravity(creator, CenterGravity);
   //_ is non-existant with comic sans
   //but a worthy sacrifice. Maybe, _ is pretty important. 
-
-  MagickAnnotateImage(staff, creator, x, y, 0, (const char*)codePoint);
-  writingGlyphs = 0;
-  if (writingGlyphs) {
-    char fn[20];
-    sprintf(fn, "%dcharTest.jpg", intCode);
-    MagickWriteImage(staff, fn);
+  MagickBooleanType status;
+  character* completeChar;
+  status = MagickAnnotateImage(staff, creator, x, y, 0, (const char*)codePoint);
+  if (status == MagickTrue) {
+    writingGlyphs = 1;
+    if (writingGlyphs) {
+      char fn[20];
+      sprintf(fn, "%dcharTest.jpg", intCode);
+      MagickWriteImage(staff, fn);
+    }
+    readWandIntoColorMatrix(staff, charColors);
+    profileMatrix* charProfile = generateProfileFromColor(charColors);  
+    completeChar = newCharacter();
+    completeChar->charVal = codePoint;
+    completeChar->profile = charProfile;
   }
-  readWandIntoColorMatrix(staff, charColors);
-  profileMatrix* charProfile = generateProfileFromColor(charColors);  
-  character* completeChar = newCharacter();
-  completeChar->charVal = codePoint;
-  completeChar->profile = charProfile;
+  else {
+    completeChar = NULL;
+  }
   RelinquishMagickMemory(fm);
   return completeChar;
 }
 
-int sizeOfIMCharCode = 5; //5 with nul, 4 otherwise because IM usees utf-8
+//int sizeOfIMCharCode = 5; //5 with nul, 4 otherwise because IM usees utf-8
 //actually could be as much as 6 bytes, so 7 including null. 
 
 char* intToIMUnicode(u_int32_t intCode) {
@@ -182,17 +192,17 @@ char* intToIMUnicode(u_int32_t intCode) {
     copyThing[i] = '\0';
   }
   //copyThing[sizeOfIMCharCode - 1] = '\0';
-  for(int index = sizeOfIMCharCode - 2; index >= 0; index--) {
+  for(int index = sizeOfIMCharCode - 1; index >= 0; index--) {
     byteBlock = intCode & 0xff;
     intCode = intCode >> 8;
     copyThing[index] = byteBlock;
-    index--;    
+    //index--;    fffffffff
   }
   int actualSize = sizeOfIMCharCode;
   while(copyThing[sizeOfIMCharCode - actualSize] == 0 && actualSize > 1) {
     actualSize--;
   }
-  char* charCode = malloc(sizeof(char) * actualSize);
+  char* charCode = malloc(sizeof(char) * (actualSize + 1));
   int cci = 0;
   for(int i = 0; i < sizeOfIMCharCode; i++) {
     if (copyThing[i] != 0) {
@@ -200,7 +210,7 @@ char* intToIMUnicode(u_int32_t intCode) {
       cci++;
     }
   }
-  charCode[actualSize - 1] = '\0';
+  charCode[actualSize] = '\0';
   return charCode;
 }
 

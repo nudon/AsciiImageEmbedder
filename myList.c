@@ -1,6 +1,8 @@
 
 #include "myList.h"
 
+//toying with idea of having list point to bit and function which tells if and how it should free stored data
+
 void appendToGen_list(gen_list* list, gen_node* new);
 void prependToGen_list(gen_list* list, gen_node* new);
  void removeFromGen_list(gen_list* list, gen_node* node);

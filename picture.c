@@ -12,10 +12,6 @@
 //set to zero would turn it off
 //also some options for setting param based on entire image or individual profiles
 
-//also, issue of darker regions getting represented as whitespace.
-//kind of fixed that by doing something. Yeah, started assiging lightness non-zero values. like between .02 and .01
-//sometimes that works, sometimes it doesn't
-
 //also, non-ascii blocks are kind of broke, just prints whatever
 //odd thing is, results are random
 //odd, because when I was looking at the raw output of my incrementUTFcodepoint
@@ -23,53 +19,22 @@
 //maybe it's an issue in intToIMUnicode
 //otherwise, not sure where I'm getting the random results.
 
-//kind of an old idea that resurfaced
-//realize why I didn't do it, but perhaps take average colors of all regions
-//would have to be darkness
-//sort them into a list
-//then do same for all the drawn characters
-//these things have to be sorted, mind
-//then, for a color, find in list. note index, and lenght. Have index/length = c
-//for character array, with it's own length, find it's index = c * length
-//have something where color at index  is c percent darker/lighter then other colors
-//and have character at index is also c percent darker/lighter than other colors
+//found issue in intToIMCode
+//was double decrementing in a loop
+//also did some wacky stuff with alocating too little and truncating codepoint early
 
-//what this doesn't do, solve case where distrubution of colors is starkly different.
-//say one picture is just varying shades of black, the lightest color would get matched to whitespace, since they are both lighter than every other element in their set.
+//thinking how to speed up
+//most of time in bigger pictures is in rendering to a picture
+//thinking it's because I'm doing that one character at a time
+//breaking it down into rendering by rows, or even all at once, should be quicker
 
-//still, have to somehow bridge gap between text not being as dark totally black region
-//could extend to use higher/weirder unicode ranges,
+//also, probably a good idea to throw in a general space no matter what ascii/nonascii settings are there
 
-//alternative thingy, find the darkest element in region and character sets
-//for each element of each set, store difference between it and the darkest element.
-//match things based on having their differences being near the same(the difference in their difference being zero).
-//could also do a similar thing for lightness, and match based on both of those
-//so in general it will match regions with characters which are both similarly differenct from their respective sets most light and dark elements.
+//for future ideas, could extend to image collages, essentially replacing characters with other pictures
+//could extend to make a gui deal so it's easeir to use
+//could add things for gifs as well(would want to speed up drawing to image process)
 
-//I think that one should work out well. just need to work out how to do it.
-//have some data structure which has a color matrix or just an average color,
-//and maybe a union of a pointer to a character and region.
-//go contruct a list of them , find the highest and lowest darkness in list
-//then compute diffenece in both, store lightdiff and dark diff in struct.
-//then, take from the region list, find closest match in character list
-//there's the match. not usable with my matching system though
-//better to just return (fabs(ld1 - ld2) + fabs(dd1 - dd2)) and use in existing compare
-//infrastructure is still needed though
-
-
-//considering i felt like garbage I got it working pretty quickly
-//only issue is that it segfaults randomly
-//annoying thing is that it passes valgrind fine.
-//making me think it's a race condition somehow. only there is no multithreading
-//might try running valgrind more
-//but it never segfaulting is suspicious
-//issue is that average colors in profiles of charset are off. 
-
-
-//unicode block ranges
-
-
-
+//also, realized that mona doesn't cover all of hiragana blocks. It's probable that when I'm building the character set I can draw each character and determine through return code if there was some error. If so, then I could exluce the character from further use. Otherwise solving font-specific gaps is impossible
 int formatSpaceX;
 int formatSpaceY;
 
@@ -314,6 +279,28 @@ int indexOfChar(char* src, char search) {
   return ret;
 }
 
+void setDefaultOpts() {
+  setFontSize(10);
+  setSpaceX(0); // 1 on my terminal
+  setSpaceY(0); // 3 on my terminal
+  setUseQuick(0);
+  setUseAverageReduce(0);
+  setAsciiUsed(1);
+  setHiraganaUsed(0);
+  setKatakanaUsed(0);
+  setEdgeScoreWeight(1);
+  setColorScoreWeight(1);
+  setSaturationScale(0);
+  setLightnessScale(1);
+  setHueScale(1);
+  setDistanceWeight(1);
+  setHitDecay(.2);
+  setMissDecay(.8);
+  setHitWeight(1);
+  setMissWeight(1);
+  strcpy(outputFileName, "output.jpg");
+}
+
 int main(int argc, char * argv[]) {
   outputFileName = malloc(sizeof(char) * pathLen);
   fontName = malloc(sizeof(char) * pathLen);
@@ -335,25 +322,7 @@ int main(int argc, char * argv[]) {
   int imageHeight;
   int regionWidth;
   int regionHeight;
-  setFontSize(10);
-  setSpaceX(0); // 1 on my terminal
-  setSpaceY(0); // 3 on my terminal
-  setUseQuick(0);
-  setUseAverageReduce(0);
-  setAsciiUsed(1);
-  setHiraganaUsed(0);
-  setKatakanaUsed(0);
-  setEdgeScoreWeight(1);
-  setColorScoreWeight(1);
-  setSaturationScale(0);
-  setLightnessScale(1);
-  setHueScale(1);
-  setDistanceWeight(1);
-  setHitDecay(.2);
-  setMissDecay(.8);
-  setHitWeight(1);
-  setMissWeight(1);
-  strcpy(outputFileName, "output.jpg");
+  setDefaultOpts();
   if (argc > 1) {
     fileName = argv[1];
     imgInit();
@@ -602,7 +571,6 @@ myColor* calculateAverageColor(colorMatrix* colorMatrix) {
 
 
 
-
 void drawPicToDisk(image* pic, char* font, int fs) {
   MagickWand* staff = NewMagickWand();
   DrawingWand* creator = NewDrawingWand();
@@ -623,18 +591,48 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   //  MagickNewImage(staff, pic->width, pic->height, white);
   MagickNewImage(staff, pic->numberOfRegionCols * fontX, pic->numberOfRegionRows * fontY, white);
   DrawSetTextEncoding(creator, "UTF-8");
-  profileMatrix* aProfile;  
+  profileMatrix* aProfile;
+  //some issues with grouping up characters into a single annotate
+  //with grouping into a single annotate, not sure if newlines would be correct
+  //just going to od a single row then
+  //for that, need to copy contents into a single char*
+  //spacing on characters is off,
+  //also getting some garbage at the end of lines
+  //will probably have to look at annotate image options for setting up monospace
+  //though maybe that's just a property of fonts.
+  //dejavusansmono looks better, but there's still garbage at end of line
+  //that's cuz I'm not null terminating line.
+  //got that sorted
+  char line[pic->numberOfRegionCols * sizeOfIMCharCode];
+  char* charVal;
+  int lineIndex, len;
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
+    lineIndex = 0;
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
+      charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
+      len = strlen(charVal);
+      memcpy(&line[lineIndex], charVal, len);
+      lineIndex += len;
       aProfile = pic->profiles[rowIndex][colIndex];
-      MagickAnnotateImage(staff,
+            MagickAnnotateImage(staff,
 			  creator,
 			  colIndex * aProfile->cols,
 			  rowIndex * aProfile->rows,
 			  0,
-			  pic->filledCharacterss[rowIndex][colIndex]->charVal);
-      //printf("Drawing a thing");
+			  charVal);
+     
+     //printf("Drawing a thing");
     }
+    //char* lines = "hello everyone nice to meet you";
+    aProfile = pic->profiles[rowIndex][0];
+    line[lineIndex] = '\0';
+    /*MagickAnnotateImage(staff,
+			creator,
+			0,
+			rowIndex * aProfile->rows,
+			0,
+			line);   
+    */
     //printf("\n");
   }
   MagickWriteImage(staff, outputFileName);
