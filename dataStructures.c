@@ -266,6 +266,28 @@ void cloneColor(myColor* dest, myColor* src) {
   *dest = *src;
 }
 
+void generateLightMarkScoresForImage(image* pic) {
+  gen_list* picList = createLightmarkListFromImage(pic);
+  fillOutFields(picList);
+  freeGen_list(picList);
+}
+
+void generateLightMarkScoresForCharacterSet(characterSet* charSet) {
+  gen_list* charList = createLightmarkListFromCharacterSet(charSet);
+  fillOutFields(charList);
+  freeGen_list(charList);
+}
+
+void generateLightMarkScores(image* pic, characterSet* charSet){
+  gen_list* picList = createLightmarkListFromImage(pic);
+  gen_list* charList = createLightmarkListFromCharacterSet(charSet);
+  fillOutFields(picList);
+  fillOutFields(charList);
+  //free lists, but lightmarks remain in profiles in pic and charset
+  freeGen_list(picList);
+  freeGen_list(charList);
+}
+
 //stuff for lightmarks
 lightmark* newLightmark(myColor* avgColor) {
   lightmark* new = malloc(sizeof(lightmark));

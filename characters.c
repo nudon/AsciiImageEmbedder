@@ -54,6 +54,7 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
   assert(status != MagickFalse && "blew up at new Image");
   //colorMatrix is shared between characters
   colorMatrix* charColors = newColorMatrix(fw, fh);
+
   status = DrawSetFont(creator, font);
   assert(status != MagickFalse && "blew up setting font");
   DrawSetFontSize(creator, fs);
@@ -67,6 +68,11 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
 
 
   DrawSetTextEncoding(creator, "UTF-8");
+
+  int badCharIntCode = 0xEFBFBF;
+  colorMatrix* badChar = newColorMatrix(fw, fh);
+  character* badSymbol;
+  badSymbol = buildCharacterOfCodePoint(hickory, creator, badChar, badCharIntCode);
   int isDone = 0;
   int codeStart, codeEnd, codeUsed;
   while(!isDone) {
@@ -92,9 +98,14 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
 	MagickOpaquePaintImage(hickory, clearColor, clearColor, 0, MagickTrue);
 	symbol = buildCharacterOfCodePoint(hickory, creator, charColors, intCode);
 	if (symbol != NULL) {
-	  setCharacterAtIndex(charSet, index, symbol);
-	  getCharacterAtIndex(charSet, index)->profile->source = NULL;
-	  index++;
+	  if (!sameIntMatrix(symbol->profile->diff, badSymbol->profile->diff)) {
+	    setCharacterAtIndex(charSet, index, symbol);
+	    getCharacterAtIndex(charSet, index)->profile->source = NULL;
+	    index++;
+	  }
+	  else {
+	    fprintf(stderr, "Found a bad thing\n");
+	  }
 	}
       }
     }
@@ -119,6 +130,8 @@ characterSet* buildCharacterSet(char* font, int fw, int fh, int fs) {
   DestroyMagickWand(hickory);
   DestroyDrawingWand(creator);
   freeColorMatrix(charColors);
+  charSet->length = index;
+  generateLightMarkScoresForCharacterSet(charSet);
   return charSet;
 }
 
@@ -126,23 +139,6 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   //takes a unicode, draws the glyph to an image provided by staff
   int x, y, writingGlyphs;
   char* codePoint = intToIMUnicode(intCode);
-
-  double* fm = MagickQueryFontMetrics(staff, creator, codePoint);
-  //so, bounds and char dims are the reverse of what I thought they were
-  //bound is actual dim of character
-  //character width/height is actualy just the drawingWandDim?
-  int boundx = fm[9] - fm[7];
-  int boundy = fm[10] - fm[8];
-  int charx = fm[0];
-  int chary = fm[1];
-  int diffParam = -1;
-  //coordinate specified is the lower-lefthand corner of drawn images
-  //this generally works, I think backTick gets killed for some reason
-  //
-  x = (charx - boundx) / 2;
-  y = ((chary - boundy) / 2) + boundy;
-
-  //should have read the docs more
   x = 0;
   y = 0;
   DrawSetGravity(creator, CenterGravity);
@@ -167,7 +163,6 @@ character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, co
   else {
     completeChar = NULL;
   }
-  RelinquishMagickMemory(fm);
   return completeChar;
 }
 

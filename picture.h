@@ -4,33 +4,53 @@
 #include <MagickWand/MagickWand.h>
 #include "dataStructures.h"
 
-int indexOfChar(char* src, char search);
-int match(char* src, char* search);
-int matchFlag(char* token, char* flag );
+#define pathLen 255
 
 void setFontSize(int new);
 
-void setFontName(char* new);
+int getFontSize();
 
-void imgInit();
+void setSpaceX(int new);
 
-void imgQuit();
+void setSpaceY(int new);
+
+void setInputFile(char* file);
+
+char* getInputFile();
+
+void setOutputFile(char* file);
+
+char* getOutputFile();
+
+void setFont(char* newFont);
+
+void mySetFont(char* newFont);
+
+char* getFont();
+
+colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight);
+
+image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight);
+
+void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight);
 
 void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth);
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight);
 
-colorMatrix* readFileIntoColorMatrix(char* fileName);
-
-colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix* toReadTo);
-
-myColor* calculateAverageColor(colorMatrix* colorMatrix);
+colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix*);
 
 void matchImageToCharacters(image* pic, characterSet* characterSet);
 
+void imgInit();
+
+void imgQuit();
+
+colorMatrix* readFileIntoColorMatrix(char* fileName);
+
 void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
 
-int findAndStoreMatch(char* token, char* search, int resultSize, char* result);
+myColor* calculateAverageColor(colorMatrix* colorMatrix);
 
 void drawPicToDisk(image* pic, char* font, int fs);
 

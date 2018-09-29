@@ -7,34 +7,18 @@
 #include "characters.h"
 
 
-//accounted for outputing to terminal
-//just need some options to set the terminal spacing
-//set to zero would turn it off
-//also some options for setting param based on entire image or individual profiles
+int fontSize;
 
-//also, non-ascii blocks are kind of broke, just prints whatever
-//odd thing is, results are random
-//odd, because when I was looking at the raw output of my incrementUTFcodepoint
-//seemed like things where good
-//maybe it's an issue in intToIMUnicode
-//otherwise, not sure where I'm getting the random results.
+void setFontSize(int new) {
+  if (new > 0) {
+    fontSize = new;
+  }
+}
 
-//found issue in intToIMCode
-//was double decrementing in a loop
-//also did some wacky stuff with alocating too little and truncating codepoint early
+int getFontSize() {
+  return fontSize;
+}
 
-//thinking how to speed up
-//most of time in bigger pictures is in rendering to a picture
-//thinking it's because I'm doing that one character at a time
-//breaking it down into rendering by rows, or even all at once, should be quicker
-
-//also, probably a good idea to throw in a general space no matter what ascii/nonascii settings are there
-
-//for future ideas, could extend to image collages, essentially replacing characters with other pictures
-//could extend to make a gui deal so it's easeir to use
-//could add things for gifs as well(would want to speed up drawing to image process)
-
-//also, realized that mona doesn't cover all of hiragana blocks. It's probable that when I'm building the character set I can draw each character and determine through return code if there was some error. If so, then I could exluce the character from further use. Otherwise solving font-specific gaps is impossible
 int formatSpaceX;
 int formatSpaceY;
 
@@ -46,291 +30,86 @@ void setSpaceY(int new) {
   formatSpaceY = new;
 }
 
-char* flagStart = "--";
-char optValueDelim = '=';
+char inputFileName[pathLen];
 
-char* fontSizeOpt = "font-size";
-char* fontNameOpt = "font";
-char* outputFile = "output";
-char* useQuickCalc = "useQuickCalc";
-char* autoGenColorScale = "auto";
-char* asciiUsedOpt = "asciiUsed";
-char* hiraganaUsedOpt = "hiraganaUsed";
-char* katakanaUsedOpt = "katakanaUsed";
-  
-//still in use
-char* edgeWeight = "edge";
-char* colorWeight = "color";
-char* saturationScale = "saturation";
-char* lightnessScale = "lightness";
-char* hueScale = "hue";
-char* spaceX = "spacex";
-char* spaceY = "spacey";
-//kind of pointless, but why not
-char* useAverageReduce = "useAverageReduce";
+char outputFileName[pathLen];
 
+char fontName[pathLen];
 
-//these, kind of worthless on smaller-scale things
-char* distanceDropoff = "dist";
-char* hitWeight = "hitWeight";
-char* missWeight = "missWeight";
-char* hitDecay = "hitDecay";
-char* missDecay = "missDecay";
+char fontPath[pathLen];
 
-
-
-char* help = "help";
-
-int pathLen = 255;
-
-char* outputFileName;
-
-char* fontName;
-
-void printHelpMessage() {
-  fprintf(stderr, "%s=$INT: Controls the size of the font the image gets embedded in\n", fontSizeOpt);
-  fprintf(stderr, "%s=$NAME: specifies which font to use in the font folder. need to include extention in\n", fontNameOpt);
-  fprintf(stderr, "%s=$NAME: specifies the name of the image to output to in\n",outputFile );
-  fprintf(stderr, "%s=$INT: Specifies the in-between character  spacing, so picture looks correct when viewed in application in\n", spaceX);
-  fprintf(stderr, "%s=$INT: Specifies the line spacing, so picture looks correct when viewed in application in\n", spaceY);
-  fprintf(stderr, "%s=$FLOAT: Sets the weight assigned to edge scores when matching profiles\n", edgeWeight);
-  fprintf(stderr, "%s=$FLOAT: Sets the wieght assigned to the average colors of profiles\n", colorWeight);
-  fprintf(stderr, "Using HSL color scheme, look at that if this doesn't make sense: \n");
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to saturation differences when comparing colors\n", saturationScale);
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to lightness differences when comparing colors\n", lightnessScale);
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to hue differences when comparing colors\n", hueScale);
-  fprintf(stderr, "%s: Option to automatically generate color component scales \n", autoGenColorScale);
-}
-//also want ones for the color components
-
-
-int fontSize;
-
-void setFontSize(int new) {
-  if (new > 0) {
-    fontSize = new;
-  }
+void setInputFile(char* file) {
+  strcpy(inputFileName, file);
 }
 
-void parseArgs(int argc, char* argv[]) {
-  char* token;
-  int sizeOfValue = 10;
-  char valueText[sizeOfValue];
-  int intVal;
-  float floatVal;
-  for (int i = 1; i < argc; i++) {
-    token = argv[i];
-    //font size
-    if (findAndStoreMatch(token, fontSizeOpt, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setFontSize(intVal);
-    }
-    //font 
-    else if (findAndStoreMatch(token, fontNameOpt, pathLen, fontName) != -1) {
-      //again, don't do anything
-    }
-    //space between characters in terminal/text-viewer
-    else if (findAndStoreMatch(token, spaceX, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setSpaceX(intVal);
-    }
-    //space between lines in terminal/text-viewer
-    else if (findAndStoreMatch(token, spaceY, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setSpaceY(intVal);
-    }
-    //weight assigned to difference in edge scores
-    else if (findAndStoreMatch(token, edgeWeight, sizeOfValue, valueText) != -1) {
-      floatVal = atof(valueText);
-      setEdgeScoreWeight(floatVal);
-    }
-    //weight assigned to differend in color
-    else if (findAndStoreMatch(token, colorWeight, sizeOfValue, valueText) != -1) {
-      floatVal = atoi(valueText);
-      setColorScoreWeight(floatVal);
-    }
-    //these deal with weights assigned to components in getPixelDif
-    else if (findAndStoreMatch(token, saturationScale, sizeOfValue, valueText) != -1) {
-      floatVal = atof(valueText);
-      setSaturationScale(floatVal);
-    }
-    else if (findAndStoreMatch(token, lightnessScale, sizeOfValue, valueText) != -1) {
-      floatVal = atof(valueText);
-      setLightnessScale(floatVal);
-    }
-    else if (findAndStoreMatch(token, hueScale, sizeOfValue, valueText) != -1) {
-      floatVal = atof(valueText);
-      setHueScale(floatVal);
-    }
-    else if (findAndStoreMatch(token, asciiUsedOpt, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setAsciiUsed(intVal);
-    }
-    else if (findAndStoreMatch(token, hiraganaUsedOpt, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setHiraganaUsed(intVal);
-    }
-    else if (findAndStoreMatch(token, katakanaUsedOpt, sizeOfValue, valueText) != -1) {
-      intVal = atoi(valueText);
-      setKatakanaUsed(intVal);
-    }
-    //not really used
-    else if (findAndStoreMatch(token, distanceDropoff, sizeOfValue, valueText) != -1) {
-      floatVal = atof(valueText);
-      setDistanceWeight(floatVal);
-    }
-    //not really used
-    else if (findAndStoreMatch(token, hitWeight, 10, valueText) != -1) {
-      floatVal = atof(valueText);
-      setHitWeight(floatVal);
-    }
-    //not really used
-    else if (findAndStoreMatch(token, hitDecay, 10, valueText) != -1) {
-      floatVal = atof(valueText);
-      setHitDecay(floatVal);
-    }
-    //not really used
-    else if (findAndStoreMatch(token, missWeight, 10, valueText) != -1) {
-      floatVal = atof(valueText);
-      setMissWeight(floatVal);
-    }
-    //not really used
-    else if (findAndStoreMatch(token, missDecay, 10, valueText) != -1) {
-      floatVal = atof(valueText);
-      setMissDecay(floatVal);
-    }
-    //specifying output file
-    else if (findAndStoreMatch(token, outputFile, pathLen, outputFileName) != -1)  {
-      //don't do anything?
-    }
-    else if (matchFlag(token, autoGenColorScale)) {
-      setAutoGenColorScale(1);
-    }
-    else if (matchFlag(token, useQuickCalc)) {
-      setUseQuick(1);
-    }
-    else if (matchFlag(token, useAverageReduce)) {
-      setUseAverageReduce(1);
-    }
-    else if (matchFlag(token, help)) {
-      printHelpMessage();
-      exit(EXIT_SUCCESS);
-    }    
-    
-  }
+char* getInputFile() {
+  return inputFileName;
 }
 
-int matchFlag(char* token, char* flag ) {
-  return (match(token, flagStart) && match(token, flag));
+void setOutputFile(char* file) {
+  strcpy(outputFileName, file);
 }
 
-int findAndStoreMatch(char* token, char* search, int resultSize, char* result) {
-  int ret = -1;
-  if (match(token, flagStart) && match(token, search)) {
-    ret = indexOfChar(token, optValueDelim);
-    if (ret != -1) {
-      strncpy(result, token + ret + 1, resultSize);
-    }
-  }
-  return ret;
+char* getOutputFile() {
+  return outputFileName;
+}
+//had some conflict with using setFont in QtCreator
+void mySetFont(char* newFont) {
+  setFont(newFont);
 }
 
-int match(char* src, char* search) {
-  int srcLen = strlen(src);
-  int searchLen = strlen(search);
-  int currentIndex = 0;
-  int srcIndex = 0;
-  int searchIndex = 0;
-  int done = 0;
-  if (srcLen >= searchLen) {
-    while(!done) {
-      srcIndex = currentIndex;
-      if(srcIndex == searchLen) {
-	return 0;
-      }
-      while (src[srcIndex] == search[searchIndex] ) {
-	if (searchIndex + 1 == searchLen) {
-	  return 1;
-	}
-	else if (srcIndex + 1 == srcLen) {
-	  return 0;
-	}
-	else {
-	  srcIndex++;
-	  searchIndex++;
-	}
-      }
-      currentIndex++;
-    }
-  }
-  return 0;
-}
-
-int indexOfChar(char* src, char search) {
-  int ret = -1;
-  int srcLen = strlen(src);
-  int index = 0;
-  while(ret == -1 && index < srcLen) {
-    if (src[index] == search) {
-      ret = index;
-    }
-    index++;
-  }
-  return ret;
-}
-
-void setDefaultOpts() {
-  setFontSize(10);
-  setSpaceX(0); // 1 on my terminal
-  setSpaceY(0); // 3 on my terminal
-  setUseQuick(0);
-  setUseAverageReduce(0);
-  setAsciiUsed(1);
-  setHiraganaUsed(0);
-  setKatakanaUsed(0);
-  setEdgeScoreWeight(1);
-  setColorScoreWeight(1);
-  setSaturationScale(0);
-  setLightnessScale(1);
-  setHueScale(1);
-  setDistanceWeight(1);
-  setHitDecay(.2);
-  setMissDecay(.8);
-  setHitWeight(1);
-  setMissWeight(1);
-  strcpy(outputFileName, "output.jpg");
-}
-
-int main(int argc, char * argv[]) {
-  outputFileName = malloc(sizeof(char) * pathLen);
-  fontName = malloc(sizeof(char) * pathLen);
-  char* fileName;
-  char fontToUse[pathLen];
+void setFont(char* newFont) {
   char* fontDir = "./fonts/";
-  char* defaultFontName = "comicSans.ttf";
-  memcpy(fontToUse, fontDir, pathLen);
-  //have damase and unifont as utf-8 things
-  //DejaVu sans mono is also an option
-  //mona font is also nice if using sjis, though that is spooky because not monospace?
-  memcpy(fontName, defaultFontName, strlen(defaultFontName));
-  fontName[strlen(defaultFontName)] = '\0';
-  //fontToUse = "mono";
+  memcpy(fontPath, fontDir, strlen(fontDir) + 1);
+  //strcat(fontPath, fontDir);
+  strcat(fontPath, newFont);
+}
+
+char* getFont() {
+  return fontPath;
+}
+
+
+colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight) {
+  colorMatrix* entireImage = NULL;
+  MagickWand* birch = NewMagickWand();
+  MagickBooleanType status;
+  MagickSetFirstIterator(birch);
+  status = MagickReadImage(birch, fileName);
+  if (status != MagickFalse) {
+    scaleImageToFitFont(birch, fontWidth, fontHeight);
+    entireImage = readWandIntoColorMatrix(birch, NULL);
+  }
+  DestroyMagickWand(birch);
+  return entireImage;
+}
+
+image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight) {
+  int regionWidth = fontWidth;
+  int regionHeight = fontHeight;
+  int imageWidth = entireImage->cols;
+  int imageHeight = entireImage->rows;
+  int diffParam, regionsx, regionsy;
+  image* pic = NULL;
+  if (getAutoGenColorScale()) {
+    autoSetColorComponentScale(entireImage);
+  }
   
-  int fontWidth;
-  int fontHeight;
-  int imageWidth;
-  int imageHeight;
-  int regionWidth;
-  int regionHeight;
-  setDefaultOpts();
-  if (argc > 1) {
-    fileName = argv[1];
-    imgInit();
-    parseArgs(argc, argv);
-    memcpy(fontToUse + strlen(fontDir), fontName, strlen(fontName));
-    fontToUse[strlen(fontDir) + strlen(fontName)] = '\0';
-    printf("Using font found at %s\n", fontToUse);
-    //first, get metrics of font
+  //for image
+  diffParam = averageCompareResults(entireImage);
+  setDiffParam(diffParam);
+  regionsx = (imageWidth - formatSpaceX) / (regionWidth + formatSpaceX);
+  regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
+  pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
+  generateLightMarkScoresForImage(pic);
+  generateLightMarkScoresForImage(pic);
+  return pic;
+}
+
+
+
+
+void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight) {
     MagickBooleanType status;
     PixelWand* white = NewPixelWand();
     PixelSetColor(white, "white");
@@ -340,7 +119,7 @@ int main(int argc, char * argv[]) {
     assert(status != MagickFalse && "blew up at new Image");
     status = DrawSetFont(creator, fontToUse);
     assert(status != MagickFalse && "blew up setting font");
-    DrawSetFontSize(creator, fontSize);
+    DrawSetFontSize(creator, size);
     status = PixelSetColor(white, "black");
     //for text color
     DrawSetFillColor(creator, white);
@@ -349,58 +128,13 @@ int main(int argc, char * argv[]) {
     char* str = "M";
   
     fm = MagickQueryFontMetrics(staff, creator, str);
-    fontWidth = fm[0];  //maybe use fm[9] - fm[7]
-    fontHeight = fm[1];  //maybe use fm[10] - fm[8]
-      
-    regionWidth = fontWidth;
-    regionHeight = fontHeight;
-    printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
-    MagickWand* birch = NewMagickWand();
-    MagickSetFirstIterator(birch);
-    status = MagickReadImage(birch, fileName);
-    if (status != MagickFalse) {
-      scaleImageToFitFont(birch, fontWidth, fontHeight);
-      imageWidth = (int)MagickGetImageWidth(birch);
-      imageHeight = (int)MagickGetImageHeight(birch);
-      
-      colorMatrix* entireImage = readWandIntoColorMatrix(birch, NULL);
-      if (getAutoGenColorScale()) {
-	autoSetColorComponentScale(entireImage);
-      }
-      int diffParam = averageCompareResults(entireImage);
-      setDiffParam(diffParam);
-      int regionsx = (imageWidth - formatSpaceX) / (regionWidth + formatSpaceX);
-      int regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
-      image* pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
-      characterSet* charSet = buildCharacterSet(fontToUse, fontWidth, fontHeight, fontSize);
-      gen_list* picList = createLightmarkListFromImage(pic);
-      gen_list* charList = createLightmarkListFromCharacterSet(charSet);
-      fillOutFields(picList);
-      fillOutFields(charList);
-      //actually free the list and all nodes, but not data in nodes
-      freeGen_list(picList);
-      freeGen_list(charList);
-      matchImageToCharacters(pic, charSet);
-      fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
-      drawPicToDisk(pic, fontToUse, fontSize);
-      freeImage(pic);
-      freeCharacterSet(charSet);
-      freeColorMatrix(entireImage);
-    }
-    else {
-      printf("Unable to open file %s\n", fileName);
-    }
+    *fontWidth = fm[0];  //maybe use fm[9] - fm[7]
+    *fontHeight = fm[1];  //maybe use fm[10] - fm[8]
+
     DestroyPixelWand(white);
     DestroyDrawingWand(creator);
     DestroyMagickWand(staff);
-    DestroyMagickWand(birch);
     RelinquishMagickMemory(fm);
-    imgQuit();
-  }
-  else {
-    fprintf(stderr, "Usage is \"%s\" fileName (opt)fontSize (opt)pixleThing (opt) distanceDecay (opt)edgeWeight (opt)colorWeight\n", argv[0]);
-  }
-  
 }
 
 void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {

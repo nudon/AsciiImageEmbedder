@@ -1,0 +1,828 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>711</width>
+    <height>708</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QHBoxLayout" name="horizontalLayout" stretch="40,60">
+    <property name="spacing">
+     <number>9</number>
+    </property>
+    <item>
+     <layout class="QVBoxLayout" name="options">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QWidget" name="input" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Input File</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_2"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="output" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Output File</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_3">
+           <property name="text">
+            <string>output.png</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="font" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Set Font</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_7">
+           <property name="text">
+            <string>comicSans.ttf</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="fontsize" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_11">
+           <property name="text">
+            <string>Set Font Size</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_8">
+           <property name="text">
+            <string>10</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="xspacing" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label12">
+           <property name="text">
+            <string>Set x spacing</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_9">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="yspacing_2" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_13">
+           <property name="text">
+            <string>Set y spacing</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_10">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="ascii" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_8">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_14">
+           <property name="text">
+            <string>Set Ascii Used</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_11">
+           <property name="text">
+            <string>1</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="hiragana" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_9">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_15">
+           <property name="text">
+            <string>Set Hiragana Used</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_12">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="katakana" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_10">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_16">
+           <property name="text">
+            <string>Set Katakana Used</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_13">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="edge" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_11">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_17">
+           <property name="text">
+            <string>Set Edge Score Weigt</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_14">
+           <property name="text">
+            <string>1</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="color" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_12">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_18">
+           <property name="text">
+            <string>Set Color Score Weight</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_15">
+           <property name="text">
+            <string>1</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="hue" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_14">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_20">
+           <property name="text">
+            <string>Set Hue Weight</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_17">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="saturation" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_13">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_19">
+           <property name="text">
+            <string>Set Saturation Weight</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_16">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="lightness" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_15">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_21">
+           <property name="text">
+            <string>Set Lightness Weight</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="optionSetter" name="lineEdit_18">
+           <property name="text">
+            <string>1</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="imageBuilder" name="pushButton">
+        <property name="text">
+         <string>Generate Image</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="images" stretch="10,40,10,40">
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Base Image</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="imageViewer" name="basePicture">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="scaledContents">
+         <bool>false</bool>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="asciiPicture">
+        <property name="text">
+         <string>Ascii Image</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="imageViewer" name="textPicture">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="scaledContents">
+         <bool>false</bool>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>711</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QToolBar" name="mainToolBar">
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>optionSetter</class>
+   <extends>QLineEdit</extends>
+   <header>optionsetter.h</header>
+   <slots>
+    <signal>input_file_changed(char*)</signal>
+    <slot>gui_setInputFile()</slot>
+    <slot>gui_setOutputFile()</slot>
+    <slot>gui_setFont()</slot>
+    <slot>gui_setFontSize()</slot>
+    <slot>gui_setSpaceX()</slot>
+    <slot>gui_setSpaceY()</slot>
+    <slot>gui_setAsciiUsed()</slot>
+    <slot>gui_setHiraganaUsed()</slot>
+    <slot>gui_setKatakanaUsed()</slot>
+    <slot>gui_setEdgeScoreWeight()</slot>
+    <slot>gui_setColorScoreWeight()</slot>
+    <slot>gui_setSaturationScale()</slot>
+    <slot>gui_setLightnessScale()</slot>
+    <slot>gui_setHueScale()</slot>
+   </slots>
+  </customwidget>
+  <customwidget>
+   <class>imageBuilder</class>
+   <extends>QPushButton</extends>
+   <header>imagebuilder.h</header>
+   <slots>
+    <signal>buildComplete(char*)</signal>
+    <slot>buildAsciiImage()</slot>
+   </slots>
+  </customwidget>
+  <customwidget>
+   <class>imageViewer</class>
+   <extends>QLabel</extends>
+   <header>imageviewer.h</header>
+   <slots>
+    <slot>showNewImage(char*)</slot>
+   </slots>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>buildComplete(char*)</signal>
+   <receiver>textPicture</receiver>
+   <slot>showNewImage(char*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>101</x>
+     <y>674</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>414</x>
+     <y>491</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_3</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_3</receiver>
+   <slot>gui_setOutputFile()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>132</x>
+     <y>114</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>302</x>
+     <y>113</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_7</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_7</receiver>
+   <slot>gui_setFont()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>179</x>
+     <y>164</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>153</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_8</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_8</receiver>
+   <slot>gui_setFontSize()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>215</x>
+     <y>201</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>200</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_9</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_9</receiver>
+   <slot>gui_setSpaceX()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>255</x>
+     <y>246</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>239</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_10</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_10</receiver>
+   <slot>gui_setSpaceY()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>285</x>
+     <y>289</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>283</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_11</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_11</receiver>
+   <slot>gui_setAsciiUsed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>314</x>
+     <y>335</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>327</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_12</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_12</receiver>
+   <slot>gui_setHiraganaUsed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>318</x>
+     <y>376</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>366</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_13</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_13</receiver>
+   <slot>gui_setKatakanaUsed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>150</x>
+     <y>422</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>276</x>
+     <y>417</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_14</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_14</receiver>
+   <slot>gui_setEdgeScoreWeight()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>190</x>
+     <y>458</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>316</x>
+     <y>459</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_16</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_16</receiver>
+   <slot>gui_setSaturationScale()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>218</x>
+     <y>591</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>591</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_17</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_17</receiver>
+   <slot>gui_setHueScale()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>250</x>
+     <y>554</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>547</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_18</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_18</receiver>
+   <slot>gui_setLightnessScale()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>277</x>
+     <y>633</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>634</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_2</sender>
+   <signal>returnPressed()</signal>
+   <receiver>lineEdit_2</receiver>
+   <slot>gui_setInputFile()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>96</x>
+     <y>69</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>283</x>
+     <y>66</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEdit_2</sender>
+   <signal>input_file_changed(char*)</signal>
+   <receiver>basePicture</receiver>
+   <slot>showNewImage(char*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>318</x>
+     <y>70</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>464</x>
+     <y>159</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>released()</signal>
+   <receiver>pushButton</receiver>
+   <slot>buildAsciiImage()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>151</x>
+     <y>678</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>269</x>
+     <y>685</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

@@ -1,7 +1,5 @@
 #ifndef FILE_REGION_SEEN
 #define FILE_REGION_SEEN
-
-//these will store whatever metadata I want
 #include "dataStructures.h"
 
 // so, have matrix. in general it contains metainformation like value of a pixel or group of pixel
@@ -14,29 +12,13 @@
 // the otheer, doing some kind of edge detection?
 //idea was to reduce lines/edges into horizontal, vertical, diagnol, would compare the edge profiles to find a similar match
 
-//kind of discrepencany in naming scheme. col/row max indicates dimension of profile matrix
-//standard for where to start specific edge Checks
-//listed as whichEdge, rowStart, colStart
-//top     , 0         , 0
-//bottom  , rowMax    , 0,
-//left    , 0         , 0
-//right   , 0         , colMax
-//table   , rowMax / 2, 0,
-//pole    , 0         , colMax / 2
-//forward , 0,        , colMax
-//backWard, 0        , 0
 
-//standard for where to end specific edge Checks
-//listed as whichEdge, rowEnd, colEnd
-//top     , 0         , colMax
-//bottom  , rowMax    , colMax,
-//left    , rowMax    , 0
-//right   , rowMax    , colMax
-//table   , rowMax / 2, colMax
-//pole    , rowMax    , colMax / 2
-//forward , rowMax    , 0
-//backWard, rowMax    , colMax
-
+/*
+//datasctructures so my c++ files can do things
+extern colorMatrix* entireImage;
+extern image* pic;
+extern characterSet* charSet;  
+*/
 
 void setUseQuick(int new);
 void setUseAverageReduce(int new);
@@ -93,5 +75,7 @@ int getNonColorPixelDiff(myColor* c1, myColor* c2);
 
 
 void autoSetColorComponentScale(colorMatrix* source);
+
+int sameIntMatrix(intMatrix* m1, intMatrix* m2);
 
 #endif

@@ -162,6 +162,10 @@ void divideColor(myColor* dest, int denom);
 
 
 //lightmark stuff
+void generateLightMarkScoresForImage(image* pic);
+void generateLightMarkScoresForCharacterSet(characterSet* charSet);
+void generateLightMarkScores(image* pic, characterSet* charSet);
+
 lightmark* newLightmark(myColor* avgColor);
 gen_list* createLightmarkListFromImage(image* pic);
 gen_list* createLightmarkListFromCharacterSet(characterSet* set);

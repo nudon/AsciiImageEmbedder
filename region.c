@@ -14,17 +14,17 @@ static int useQuick = 0;
 static int useAverageReduce = 0;
 static int autoGenColorScale = 0;
 static float edgeScoreWeight = 1;
-static float colorScoreWeight = 1 ;
+static float colorScoreWeight = 1;
 static float distanceWeight = -1;
 static float saturationScale = 1;
 static float lightnessScale = 1;
 static float hueScale = 1;
 
 
-static float globHitDecay;
-static float globHitWeight;
-static float globMissDecay;
-static float globMissWeight;
+static float globHitDecay = 1;
+static float globHitWeight = 1;
+static float globMissDecay = 1;
+static float globMissWeight = 1;
 
 static character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
@@ -68,21 +68,18 @@ void setDistanceWeight(float new) {
 void setSaturationScale(float new) {
   if (new >= 0) {
     saturationScale = new;
-    //fprintf(stderr, "sat Scale is %f\n", new);
   }
 }
 
 void setLightnessScale(float new) {
   if (new >= 0) {
     lightnessScale = new;
-    //fprintf(stderr, "light Scale is %f\n", new);
   }
 }
 
 void setHueScale(float new) {
   if (new >= 0) {
     hueScale = new;
-    //fprintf(stderr, "hue Scale is %f\n", new);
   }
 }
 
@@ -1021,23 +1018,14 @@ void autoSetColorComponentScale(colorMatrix* source) {
       }            
     }
   }
-  //so, I think that if average differences in a color component were low, want the scale on that to be high?
-  //I don't really know,  but I'll try a basic inverse relationship between average compare and scale
-  //having it be 1 / num seems weak, will try having numerator be half of max compnent diff
-  //also I need to change my hue thing once again, when I'm scaling colors I multuply hue by 255, so it's max range isn't 360.
-  //max hue diff is only 255 / 2, since hues' wrap around
   if (totHueDif != 0) {
-    //setHueScale((255 / 4) / ((double)totHueDif / totalCompares));
     setHueScale(((float)totHueDif / totalCompares));
   }
   if (totLightnessDif != 0) {
-    //setLightnessScale((255 / 2) / ((double)totLightnessDif / totalCompares));
     setLightnessScale((float)totLightnessDif / totalCompares);
   }
   if (totSaturationDif != 0) {
-    //setSaturationScale((255 / 2) / ((double)totSaturationDif / totalCompares));
     setSaturationScale(((float)totSaturationDif / totalCompares));
-    //setSaturationScale(0);
   }
 }
 
@@ -1058,4 +1046,30 @@ int hueDif(myColor* c1, myColor* c2) {
     temp = 255 - temp;
   }
   return temp;
+}
+
+
+
+int sameIntMatrix(intMatrix* m1, intMatrix* m2) {
+  //to be used primarily in sniffing out bad characters in fonts
+  //only issue is that with one font there have been a left and right justified ? rendered on errors
+  //not sure what determines how that's alligned, but it's a source of error
+  //apparently 0xEF 0xBF 0xBF should be an intCode for an invalid character
+  //unless fonts are cheeky and supply a glyph for the invalid character, should be fine for some of the ?'s
+  int ret = 0, rows = m1->rows, cols = m1->cols, val1, val2;
+  if (m1->rows == m2->rows && m1->cols == m2->cols) {
+    ret = 1;
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      for (int colIndex = 0; colIndex < cols; colIndex++) {
+	val1 = getDiffAtIndex(m1, colIndex, rowIndex);
+	val2 = getDiffAtIndex(m2, colIndex, rowIndex);
+	if ( val1 != val2) {
+	  ret = 0;
+	  colIndex = cols;
+	  rowIndex = rows;
+	}
+      }
+    }
+  }
+  return ret;
 }
