@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "region.h"
-#include "dataStructures.h"
+#include "picture.h"
+//#include "dataStructures.h"
 
 extern int diffYes;
 extern int diffNo;
@@ -10,13 +11,20 @@ extern int diffErr;
 
 static int diffParam = -1;
 static int useQuick = 0;
-static int pixleCompScale = 1;
+static int useAverageReduce = 0;
+static int autoGenColorScale = 0;
 static float edgeScoreWeight = 1;
-static float colorScoreWeight = 1 ;
+static float colorScoreWeight = 1;
 static float distanceWeight = -1;
 static float saturationScale = 1;
 static float lightnessScale = 1;
 static float hueScale = 1;
+
+
+static float globHitDecay = 1;
+static float globHitWeight = 1;
+static float globMissDecay = 1;
+static float globMissWeight = 1;
 
 static character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
@@ -29,6 +37,19 @@ void setDiffParam(int new) {
 void setUseQuick(int new) {
   useQuick = new;
 }
+
+void setUseAverageReduce(int new) {
+  useAverageReduce = new;
+}
+
+void setAutoGenColorScale(int new) {
+  autoGenColorScale = new;
+}
+
+int getAutoGenColorScale() {
+  return autoGenColorScale;
+}
+
 
 void setEdgeScoreWeight(float new) {
   edgeScoreWeight = new;
@@ -60,6 +81,21 @@ void setHueScale(float new) {
   if (new >= 0) {
     hueScale = new;
   }
+}
+
+void setHitDecay(float new) {
+  globHitDecay = new;
+}
+
+void setHitWeight(float new){
+  globHitWeight = new;
+}
+
+void setMissDecay(float new) {
+  globMissDecay = new;
+}
+void setMissWeight(float new) {
+  globMissWeight = new;
 }
 
 void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiffParam) {
@@ -132,6 +168,17 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
   }
 }
 
+profileMatrix* generateProfileFromColor(colorMatrix* colors) {
+  int diffParam = -1;
+  profileMatrix* profile = newProfileMatrix(colors);
+  myColor* averageColor = calculateAverageColor(colors);
+  profile->averageColor = averageColor;
+  intMatrix* difs = createIntMatrix(profile);
+  fillDiffMatrix(difs, profile, diffParam);
+  calculateEdgeScores(profile);
+  return profile;
+}
+
 
 character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) {
   //given a profileMatrix with a color matrix, will generate a diff matrix
@@ -143,6 +190,7 @@ character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) 
     prof->diff = diff;
     if (prof->source != NULL) {
       //locDiffParam = averageCompareResults(prof->source);
+      //autoSetColorComponentScale(prof->source);
       fillDiffMatrix(diff, prof, locDiffParam);
     }
     else {
@@ -194,6 +242,10 @@ static character* closestCharacterToProfile(profileMatrix* subSect,  characterSe
 //think it's because I'm not calculating misses
 //also, I think anything with lots of space get's high scores in everything
 //maybe implement a distance dropoff?
+//well, actually I can run the program with dist, hitDecay, and missDecay all equal to 1. and the output looked the same. So technichally I don't think I even need any of the functionality of betterCalcEdges.
+//so, fixed the issue, which was that i wasn't even looking at the diff values before incrementing, so everything had same score, so everything was spaces
+//actually implemented everything and it looks good. So good that it should be default.
+//think in cases where characters represent larger areas the slower one does better, or in collages, but often I have fontsize super tiny so there's not much benefit
 edges* quickCalcEdges(profileMatrix* prof) {
   //idea here, just travers diffMatrix
   //if an index is within some bounds, add to edgeScore
@@ -214,32 +266,67 @@ edges* quickCalcEdges(profileMatrix* prof) {
   float dimRat = colDim / rowDim;
   float curRat = 0;
   float shiftRat = 0;
-  for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
-    for (int colIndex = 0; colIndex < colDim; colIndex++) {
+  int diffVal;
+  //the int matrix is the one matrix I made which has the inner index as rows instead of columns
+  for (int colIndex = 0; colIndex < colDim; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
       //just going to be 8 if statements. Could be worse
       //might be worse for diags, will see. worstace just do a regular traversal and  no that's dumb
       //will figure that out. might just have to disable
 
       //also, can't dothe successive hits being worth less.
-      //just increment 
-
+      //just increment
+      //thought something was off. One idea was to add statements to decrement a score instead of just counting hits
+      //know what even cooler than that? actually only incrementing an edge score if the diff at the index is set. 
+      diffVal = getDiffAtIndex(prof->diff, colIndex, rowIndex);
       if (colIndex <= vertColCheckRad) {
-	leftScore++;
+	if (diffVal == diffYes) {
+	  leftScore++;
+	}
+	else if (diffVal == diffNo) {
+	  leftScore--;
+	}
+
       }
       else if (colIndex >= colDim - vertColCheckRad) {
-	rightScore++;
+	if (diffVal == diffYes) {
+	  rightScore++;
+	}
+	else if (diffVal == diffNo) {
+	  rightScore--;
+	}
       }
       if (rowIndex <= horzRowCheckRad) {
-	topScore++;
+	if (diffVal == diffYes) {
+	  topScore++;
+	}
+	else if (diffVal == diffNo) {
+	  topScore--;
+	}
       }
       else if (rowIndex >= rowDim - horzRowCheckRad) {
-	bottomScore++;
+	if (diffVal == diffYes) {
+	  bottomScore++;
+	}
+	else if (diffVal == diffNo) {
+	  bottomScore--;
+	}
       }
       if (abs(colIndex - (colDim / 2)) <= diagColCheckRad) {
-	poleScore++;
+	if (diffVal == diffYes) {
+	  poleScore++;
+	}
+	else if (diffVal == diffNo) {
+	  poleScore--;
+	}
       }
       if (abs(rowIndex - (rowDim / 2)) <= diagRowCheckRad) {
-	tableScore++;
+	if (diffVal == diffYes) {
+	  tableScore++;
+	}
+	else if (diffVal == diffNo) {
+	  tableScore--;
+	}
       }
       //diagnols are going to be hard
       //somehow find a quick way if a point is in upper/lower triangle
@@ -262,21 +349,26 @@ edges* quickCalcEdges(profileMatrix* prof) {
 	  //shitfing the diagCheckRad switched which side of matrix it's on
 	  //so it's within the diagCheckRadius
 	  if (shiftRat < dimRat) {
-	    backwardScore++;
-	  }
-	  else {
 
+	    if (diffVal == diffYes) {
+	      	    backwardScore++;
+	    }
+	    else if (diffVal == diffNo) {
+	      backwardScore--;
+	    }
 	  }
 	}
+	
 	//in lowerLeft
 	else {
 	  shiftRat = ((float)(colIndex + diagColCheckRad)) / (rowIndex - diagRowCheckRad);
-	  //adding diagCheckRads switched side of matrix, current is withiin checkRrad
 	  if (shiftRat > dimRat) {
-	    backwardScore++;
-	  }
-	  else {
-
+	    if (diffVal == diffYes) {
+	      backwardScore++;
+	    }
+	    else if (diffVal == diffNo) {
+	      backwardScore--;
+	    }
 	  }
 	}
       }
@@ -294,10 +386,12 @@ edges* quickCalcEdges(profileMatrix* prof) {
 	  //shitfing the diagCheckRad switched which side of matrix it's on
 	  //so it's within the diagCheckRadius
 	  if (shiftRat < dimRat) {
-	    forwardScore++;
-	  }
-	  else {
-
+	    if (diffVal == diffYes) {
+	      forwardScore++;
+	    }
+	    else if (diffVal == diffNo) {
+	      forwardScore--;
+	    }
 	  }
 	}
 	//in lowerLeft
@@ -305,12 +399,18 @@ edges* quickCalcEdges(profileMatrix* prof) {
 	  shiftRat = ((float)((colDim - colIndex) + diagColCheckRad)) / (rowIndex - diagRowCheckRad);
 	  //adding diagCheckRads switched side of matrix, current is withiin checkRrad
 	  if (shiftRat > dimRat) {
-	    forwardScore++;
-	  }
-	  else {
-
+	    if (diffVal == diffYes) {
+	      forwardScore++;
+	    }
+	    else if (diffVal == diffNo) {
+	      forwardScore--;
+	    }
 	  }
 	}
+      }
+
+      if (diffVal == diffErr) {
+	fprintf(stderr, "Diff val was neither yes or no\n");
       }
 
     }
@@ -328,7 +428,7 @@ edges* quickCalcEdges(profileMatrix* prof) {
   return ret;
 }
 
-//better(?), but slower
+//better, but slower
 edges* betterPopulateEdges(profileMatrix* prof) {
   //given a profile with diffs
   //will carry out multiple traversals and orthogonal traversals
@@ -441,6 +541,9 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       checkType = doneChecking;
     }
   }
+  if (useAverageReduce) {
+    averageReduceEdgeScores(foundEdges);
+  }
   prof->edgeScores = foundEdges;
   return foundEdges;
 }
@@ -463,10 +566,10 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   float hitAmount = 1;
   float missAmount = 1;
 
-  float hitWeight = 1;
-  float missWeight = 1;
-  float hitDecay = .75;
-  float missDecay = .60;
+  float hitWeight = globHitWeight;
+  float missWeight = globMissWeight;
+  float hitDecay = globHitDecay;
+  float missDecay = globMissDecay;
 
   int rowOrthOff = 0;
   int colOrthOff = 0;
@@ -681,28 +784,25 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 }
 
 
+float compareLightmarks(lightmark* lm1, lightmark* lm2);
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float totScore, edgeScore, avgColorScore; 
   edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
-  //also do something with darkness/lightness averages
-  //now have an everage color for each matrix
-  //could either take intensity from rgb's and compare
-  //or just reuse my comparePixels functoin
-  //or make getPixelDiff compare intensity of rgb instead
-
-  //getPixelDiff, since the range gets pretty high
-  //divide it by 10
   avgColorScore = getPixelDif(p1->averageColor, p2->averageColor);
-  avgColorScore = getNonColorPixelDiff(p1->averageColor, p2->averageColor);
+  avgColorScore = compareLightmarks(p1->mark, p2->mark);
   edgeScore *= edgeScoreWeight;
   avgColorScore *= colorScoreWeight;
   totScore = edgeScore + avgColorScore;
-  //totScore = fmax(edgeScore, avgColorScore);
-  //really can't find a good colorScore
-  //totScore = edgeScore;
   //so, looking nice, only issue is dark regions are usually whitespace because crushed blacks
   //observation is, things with high edge scores in everything  are similar to those with low edge scores,
   //try and do something with that
+  //question is, how? maybe do some stats, like take standard deviation or something of all edges
+  //compare that instead? doesn't exactly work out.
+  //would seem like there's just a special case, where
+  //suddenlyidea
+  //for edges, take average of edgeScores, then subtract off from each component.
+  //negative edges are ?, but otherwise seems like a good idea.
+  //didn't totally work, but seemed cool.
   return totScore;
 }
 
@@ -758,13 +858,64 @@ float compareEdges(edges* e1, edges* e2) {
   return delta;
 }
 
+float compareLightmarks(lightmark* lm1, lightmark* lm2) {
+  float delta = 0;
+  delta += fabs(lm1->differenceFromMostLight - lm2->differenceFromMostLight);
+  delta += fabs(lm1->differenceFromMostDark - lm2->differenceFromMostDark);
+  return delta;
+}
+
+void averageReduceEdgeScores(edges* edges) {
+  float totalScore = edges->top + edges->bottom + edges->left + edges->right + edges->table + edges->pole + edges->forward + edges->backward;
+  int numOfEdges = 8;
+  float average = totalScore / numOfEdges;
+  float* temp;
+  edgeCheck whichCheck = topCheck;
+  while(whichCheck != doneChecking) {
+    if (whichCheck == topCheck) {
+      temp = &(edges->top);
+      whichCheck = bottomCheck;
+    }
+    else if (whichCheck == bottomCheck) {
+      temp = &(edges->bottom);
+      whichCheck = leftCheck;
+    }
+    else if (whichCheck == leftCheck) {
+      temp = &(edges->left);
+      whichCheck = rightCheck;
+    }
+    else if (whichCheck == rightCheck) {
+      temp = &(edges->right);
+      whichCheck = tableCheck;
+    }
+    else if (whichCheck == tableCheck) {
+      temp = &(edges->table);
+	whichCheck = poleCheck;
+    }
+    else if (whichCheck == poleCheck) {
+      temp = &(edges->pole);
+      whichCheck = forwardCheck;
+    }
+    else if (whichCheck == forwardCheck) {
+      temp = &(edges->forward);
+      whichCheck = backwardCheck;
+    }
+    else if (whichCheck == backwardCheck) {
+      temp = &(edges->backward);
+      whichCheck = doneChecking;
+    }
+    *temp = *temp - average;
+  }
+  
+}
+
 float averageCompareResults(colorMatrix* colors) {
 
   //basically copy-pasted code from fillDiffMatrix
   //if there's any bugs in one, there's bugs in the other  
   int rows = colors->rows;
   int cols = colors->cols;
-    int testC, testR, testNumber;
+  int testC, testR, testNumber;
   myColor* current, *compare;
   long results = 0;
   int numRuns = 0;
@@ -807,18 +958,11 @@ float averageCompareResults(colorMatrix* colors) {
 }
 
 int getPixelDif(myColor* c1, myColor* c2) {
-  //what would be a good method for this
-  //want to prioritize lightness more than hue more than saturation.
-  //I think? need to experiment
-
-  //had lightness, hue, then sat as original ranking
-  //was alright, didn't work well with matching based on colorDiffScore
-  //trying light, sat, hue, hoping it help
   int difference = 0;
   if (c1 != NULL && c2 != NULL) {
-    difference = (int)(fabs(c1->sat - c2->sat) * saturationScale);
-    difference += (int)(fabs(c1->hue - c2->hue) * hueScale);
-    difference += (int)(fabs(c1->lightness - c2->lightness) * lightnessScale);
+    difference = saturationDif(c1, c2) * saturationScale;
+    difference += hueDif(c1, c2) * hueScale;
+    difference += lightnessDif(c1, c2) * lightnessScale;
   }
   else {
     fprintf(stderr,"Comparing null pixel(s)\n");
@@ -828,20 +972,104 @@ int getPixelDif(myColor* c1, myColor* c2) {
   return difference;
 }
 
-int getNonColorPixelDiff(myColor* c1, myColor* c2) {
-  int difference;
-  int scaleAmount = pixleCompScale;
-  if (c1 != NULL && c2 != NULL) {
-    difference = (int)fabs(c1->lightness - c2->lightness);
-    difference *= scaleAmount;
-    difference += (int)fabs(c1->sat - c2->sat);
+void autoSetColorComponentScale(colorMatrix* source) {
+  int rows = source->rows;
+  int cols = source->cols;
+  int testC, testR, testNumber;
+  myColor* current, *compare;
+  long totHueDif = 0;
+  long totLightnessDif = 0;
+  long totSaturationDif = 0;
+  int totalCompares = 0;
+  for (int colIndex = 0; colIndex < cols; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      current = getColor(source, colIndex, rowIndex);
+      testNumber = 1;
+      while(testNumber > 0) {
+	if (testNumber == 1) {
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	}
+	else if (testNumber == 2) {
+	  //pixel diagnol bottom right
+	  testR = rowIndex + 1;
+	}
+	else if (testNumber == 3) {
+	  //pixel below
+	  testC = colIndex;
+	}
+	else if (testNumber == 4) {
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  //...
+	  //don't set to zero,  I increment testNumber 
+	  testNumber = -10;
+	}
+  	compare = getColor(source, testC, testR);
+	//eventually...
+	if (compare != NULL) {
+	  totSaturationDif += saturationDif(current, compare);
+	  totHueDif += hueDif(current, compare);
+	  totLightnessDif += lightnessDif(current,  compare);
+	  totalCompares++;
+	}
+	testNumber++;
+      }            
+    }
   }
-  else {
-    fprintf(stderr,"Comparing null pixel(s)\n");
-    difference = 0;
+  if (totHueDif != 0) {
+    setHueScale(((float)totHueDif / totalCompares));
   }
-
-  return difference;
+  if (totLightnessDif != 0) {
+    setLightnessScale((float)totLightnessDif / totalCompares);
+  }
+  if (totSaturationDif != 0) {
+    setSaturationScale(((float)totSaturationDif / totalCompares));
+  }
 }
 
 
+  
+int saturationDif(myColor* c1, myColor* c2) {
+  return (int)(fabs(c1->sat - c2->sat));
+}
+
+int lightnessDif(myColor* c1, myColor* c2) {
+  return (int)(fabs(c1->lightness - c2->lightness));
+}
+  
+int hueDif(myColor* c1, myColor* c2) {
+  int temp = 0;
+  temp = (int)(fabs(c1->hue - c2->hue));
+  if (temp > (255 / 2)) {
+    temp = 255 - temp;
+  }
+  return temp;
+}
+
+
+
+int sameIntMatrix(intMatrix* m1, intMatrix* m2) {
+  //to be used primarily in sniffing out bad characters in fonts
+  //only issue is that with one font there have been a left and right justified ? rendered on errors
+  //not sure what determines how that's alligned, but it's a source of error
+  //apparently 0xEF 0xBF 0xBF should be an intCode for an invalid character
+  //unless fonts are cheeky and supply a glyph for the invalid character, should be fine for some of the ?'s
+  int ret = 0, rows = m1->rows, cols = m1->cols, val1, val2;
+  if (m1->rows == m2->rows && m1->cols == m2->cols) {
+    ret = 1;
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      for (int colIndex = 0; colIndex < cols; colIndex++) {
+	val1 = getDiffAtIndex(m1, colIndex, rowIndex);
+	val2 = getDiffAtIndex(m2, colIndex, rowIndex);
+	if ( val1 != val2) {
+	  ret = 0;
+	  colIndex = cols;
+	  rowIndex = rows;
+	}
+      }
+    }
+  }
+  return ret;
+}

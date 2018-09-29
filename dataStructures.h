@@ -1,6 +1,7 @@
 #ifndef MY_DATASTRUCTURES_H
 #define MY_DATASTRUCTURES_H
 #include <stdio.h>
+#include "myList.h"
 
 typedef
 struct {
@@ -43,7 +44,16 @@ struct {
   int** ints;
 } intMatrix;
 
+typedef
+struct {
+  myColor* color;
+  float differenceFromMostLight;
+  float differenceFromMostDark;
+} lightmark;
 
+//also some list, either general or specific
+//kind of want to change this to just be profile
+//since it's not a matrix. 
 typedef
 struct {
   int rows;
@@ -53,6 +63,7 @@ struct {
   intMatrix* diff;
   colorMatrix* source;
   myColor* averageColor;
+  lightmark* mark;
 } profileMatrix;
 
 
@@ -149,4 +160,17 @@ void cloneColor(myColor* dest, myColor* src);
 void addColorToColor(myColor* dest, myColor* src);
 void divideColor(myColor* dest, int denom);
 
+
+//lightmark stuff
+void generateLightMarkScoresForImage(image* pic);
+void generateLightMarkScoresForCharacterSet(characterSet* charSet);
+void generateLightMarkScores(image* pic, characterSet* charSet);
+
+lightmark* newLightmark(myColor* avgColor);
+gen_list* createLightmarkListFromImage(image* pic);
+gen_list* createLightmarkListFromCharacterSet(characterSet* set);
+lightmark* attatchLightmarkToProfile(profileMatrix* prof);
+void fillOutFields(gen_list* l);
+void findLADExtremes(gen_list* l, myColor* darkColor, myColor* lightColor);
+void storeLightmarkDifferences(gen_list* l, myColor* darkColor, myColor* lightColor);
 #endif
