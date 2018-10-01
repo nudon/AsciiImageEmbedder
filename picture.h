@@ -14,6 +14,10 @@ void setSpaceX(int new);
 
 void setSpaceY(int new);
 
+int getSpaceX();
+
+int getSpaceY();
+
 void setInputFile(char* file);
 
 char* getInputFile();
@@ -42,9 +46,9 @@ colorMatrix* readWandIntoColorMatrix(MagickWand* staff, colorMatrix*);
 
 void matchImageToCharacters(image* pic, characterSet* characterSet);
 
-void imgInit();
+void libInit();
 
-void imgQuit();
+void libQuit();
 
 colorMatrix* readFileIntoColorMatrix(char* fileName);
 
@@ -53,5 +57,9 @@ void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
 myColor* calculateAverageColor(colorMatrix* colorMatrix);
 
 void drawPicToDisk(image* pic, char* font, int fs);
+
+void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer);
+
+void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer);
 
 #endif

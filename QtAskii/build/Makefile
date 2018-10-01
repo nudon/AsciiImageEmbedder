@@ -38,7 +38,7 @@ DISTNAME      = QtAskii1.0.0
 DISTDIR = /home/nudon/prg/asciiImage/QtAskii/build/.tmp/QtAskii1.0.0
 LINK          = g++
 LFLAGS        = 
-LIBS          = $(SUBLIBS) `pkg-config --cflags --libs MagickWand` -lQt5Widgets -lQt5Gui -lQt5Core -lGL -lpthread 
+LIBS          = $(SUBLIBS) `pkg-config --cflags --libs MagickWand freetype2` -lQt5Widgets -lQt5Gui -lQt5Core -lGL -lpthread 
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -59,11 +59,11 @@ SOURCES       = ../main.cpp \
 		moc_optionsetter.cpp \
 		moc_imagebuilder.cpp \
 		moc_imageviewer.cpp
-OBJECTS       = /home/nudon/prg/asciiImage/QtAskii/../chars.o \
-		/home/nudon/prg/asciiImage/QtAskii/../region.o \
-		/home/nudon/prg/asciiImage/QtAskii/../picture.o \
-		/home/nudon/prg/asciiImage/QtAskii/../dataStructures.o \
-		/home/nudon/prg/asciiImage/QtAskii/../myList.o \
+OBJECTS       = ../../chars.o \
+		../../region.o \
+		../../picture.o \
+		../../dataStructures.o \
+		../../myList.o \
 		main.o \
 		mainwindow.o \
 		optionsetter.o \
@@ -771,7 +771,11 @@ main.o: ../main.cpp ../mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../main.cpp
 
 mainwindow.o: ../mainwindow.cpp ../mainwindow.h \
-		ui_mainwindow.h
+		../ui_mainwindow.h \
+		../imagebuilder.h \
+		../imagegenerator.h \
+		../imageviewer.h \
+		../optionsetter.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../mainwindow.cpp
 
 optionsetter.o: ../optionsetter.cpp ../optionsetter.h \

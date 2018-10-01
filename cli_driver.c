@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
 
   if (argc > 1) {
     fileName = argv[1];
-    imgInit();
+    libInit();
     parseArgs(argc, argv);
     printf("Using font found at %s\n",fontPath );
     //for colormatrix
@@ -64,7 +64,7 @@ int main(int argc, char * argv[]) {
       printf("Unable to open file %s\n", fileName);
     }
 
-    imgQuit();
+    libQuit();
   }
   else {
     fprintf(stderr, "Usage is \"%s\" fileName (opt)fontSize (opt)pixleThing (opt) distanceDecay (opt)edgeWeight (opt)colorWeight\n", argv[0]);

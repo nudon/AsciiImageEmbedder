@@ -1,6 +1,5 @@
 #include "optionsetter.h"
 #include "imagegenerator.h"
-
 extern "C" {
 void setFontSize(int);
 
@@ -13,6 +12,9 @@ void setInputFile(char* file);
 void setOutputFile(char* file);
 
 void mySetFont(char* newFont);
+
+char* myGetFont();
+
 
 void setAsciiUsed(int);
 void setHiraganaUsed(int);
@@ -53,11 +55,28 @@ double QStringToDouble(QString q) {
     return val;
 }
 
+char* pathWarper(char* path) {
+    const char* constPrependPath = "/../../";
+    char* prependPath = strdup(constPrependPath);
+    int prependLen = strlen(prependPath);
+    int fontLen = strlen(path);
+    int totLen = prependLen + fontLen;
+    char* correctPath = (char*)malloc(sizeof(char) * (totLen+ 1));
+    memcpy(correctPath, prependPath, prependLen);
+    strcat(correctPath, path);
+    return correctPath;
+}
+
 void optionSetter::gui_setDefaultOpts() {
+    //might be able to make guiSetOptions static
+    //could replace all these with gui_* varianats
+    //that way no way for initialized QlineEdit fields and actual set options to diverge
+    //no cause then I can't access QlineEdit text, dummy
     const char* defOut = "output.png";
     const char* defFont = "comicSans.ttf";
     char* charOut = strdup(defOut);
     char* charFont = strdup(defFont);
+    char* correctPath;
     setFontSize(10);
     setSpaceX(0); // 1 on my terminal
     setSpaceY(0); // 3 on my terminal

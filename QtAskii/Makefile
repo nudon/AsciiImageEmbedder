@@ -38,7 +38,7 @@ DISTNAME      = QtAskii1.0.0
 DISTDIR = /home/nudon/prg/asciiImage/QtAskii/.tmp/QtAskii1.0.0
 LINK          = g++
 LFLAGS        = 
-LIBS          = $(SUBLIBS) `pkg-config --cflags --libs MagickWand` -lQt5Widgets -lQt5Gui -lQt5Core -lGL -lpthread 
+LIBS          = $(SUBLIBS) `pkg-config --cflags --libs MagickWand freetype2` -lQt5Widgets -lQt5Gui -lQt5Core -lGL -lpthread 
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -773,7 +773,11 @@ main.o: main.cpp mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
 
 mainwindow.o: mainwindow.cpp mainwindow.h \
-		ui_mainwindow.h
+		ui_mainwindow.h \
+		imagebuilder.h \
+		imagegenerator.h \
+		imageviewer.h \
+		optionsetter.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o mainwindow.cpp
 
 optionsetter.o: optionsetter.cpp optionsetter.h \

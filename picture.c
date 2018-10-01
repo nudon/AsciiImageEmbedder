@@ -7,6 +7,9 @@
 #include "characters.h"
 
 
+
+
+
 int fontSize;
 
 void setFontSize(int new) {
@@ -28,6 +31,14 @@ void setSpaceX(int new) {
 
 void setSpaceY(int new) {
   formatSpaceY = new;
+}
+
+int getSpaceX() {
+  return formatSpaceX;
+}
+
+int getSpaceY() {
+  return formatSpaceY;
 }
 
 char inputFileName[pathLen];
@@ -54,8 +65,18 @@ char* getOutputFile() {
   return outputFileName;
 }
 //had some conflict with using setFont in QtCreator
+//also have to go back a few directeries because the executable is in ./qt/build
+//was trying to figure out how to just have makefile produce executable in same dir as base askii folder
+
 void mySetFont(char* newFont) {
-  setFont(newFont);
+  char* fontDir = "../../fonts/";
+  memcpy(fontPath, fontDir, strlen(fontDir) + 1);
+  strcat(fontPath, newFont);
+  fprintf(stderr, "font in %s\n", fontPath);
+}
+
+char* myGetFont() {
+  return getFont();
 }
 
 void setFont(char* newFont) {
@@ -110,6 +131,10 @@ image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight) {
 
 
 void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight) {
+  //this is wrong
+  //for one, some fonts don't contain a M glyph
+  //second, even for monospace fonts that do, when creating and drawing to an image with resolution = numChars * charDim
+  //there is excess space, meaning that I miscalculated the actual font width/height
     MagickBooleanType status;
     PixelWand* white = NewPixelWand();
     PixelSetColor(white, "white");
@@ -251,12 +276,14 @@ void matchImageToCharacters(image* pic, characterSet* characterSet) {
 }
 
 
-void imgInit() {
+void libInit() {
   MagickWandGenesis();
+  init_FT();
 }
 
-void imgQuit() {
+void libQuit() {
   MagickWandTerminus();
+  close_FT();
 }
 
 
@@ -316,30 +343,44 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   PixelWand* white = NewPixelWand();
   PixelSetColor(white, "white");
   MagickSetFirstIterator(staff);
-  MagickWand* test = NewMagickWand();
-  MagickNewImage(test, 50,50,white);
-  char* str = "M";
-  double * fm = MagickQueryFontMetrics(test, creator, str);
-  int fontX = fm[0];
-  int fontY = fm[1];
+  int fontX;
+  int fontY;
+  getFontDim(font, fs, &fontX, &fontY);
   //  MagickNewImage(staff, pic->width, pic->height, white);
   MagickNewImage(staff, pic->numberOfRegionCols * fontX, pic->numberOfRegionRows * fontY, white);
   DrawSetTextEncoding(creator, "UTF-8");
-  profileMatrix* aProfile;
-  //some issues with grouping up characters into a single annotate
-  //with grouping into a single annotate, not sure if newlines would be correct
-  //just going to od a single row then
-  //for that, need to copy contents into a single char*
-  //spacing on characters is off,
-  //also getting some garbage at the end of lines
-  //will probably have to look at annotate image options for setting up monospace
-  //though maybe that's just a property of fonts.
-  //dejavusansmono looks better, but there's still garbage at end of line
-  //that's cuz I'm not null terminating line.
-  //got that sorted
+  slowDraw(pic, staff, creator);
+  MagickWriteImage(staff, outputFileName);
+  DestroyPixelWand(white);
+  DestroyPixelWand(black);
+  DestroyMagickWand(staff);
+  DestroyDrawingWand(creator);
+}
+
+
+void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
+  //fast, but you can't set font spacing and can't force fonts to behave as monospace
+  //
+  MagickBooleanType status;
+  char option[10];
   char line[pic->numberOfRegionCols * sizeOfIMCharCode];
-  char* charVal;
   int lineIndex, len;
+  sprintf(option, "%d" , getSpaceX());
+  status = MagickSetOption(staff, "-interword-spacing", option);
+  if (status == MagickFalse) {
+    fprintf(stderr, "couldn't set font spacing, should use slow text rendering\n");
+  }
+  sprintf(option, "%d" , getSpaceY());
+  status = MagickSetOption(staff, "-interline-spacing", option);
+  if (status == MagickFalse) {
+    fprintf(stderr, "couldn't set font spacing, should use slow text rendering\n");
+  }
+  status = MagickSetOption(staff, "-not-actually-any-option-hopefully", "yeahno");
+  if (status == MagickTrue) {
+    fprintf(stderr, "can't determine success of setting options, glhf\n");
+  }
+  char* charVal;
+  profileMatrix* aProfile;
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
     lineIndex = 0;
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
@@ -347,39 +388,38 @@ void drawPicToDisk(image* pic, char* font, int fs) {
       len = strlen(charVal);
       memcpy(&line[lineIndex], charVal, len);
       lineIndex += len;
-      aProfile = pic->profiles[rowIndex][colIndex];
-            MagickAnnotateImage(staff,
-			  creator,
-			  colIndex * aProfile->cols,
-			  rowIndex * aProfile->rows,
-			  0,
-			  charVal);
-     
-     //printf("Drawing a thing");
     }
-    //char* lines = "hello everyone nice to meet you";
     aProfile = pic->profiles[rowIndex][0];
     line[lineIndex] = '\0';
-    /*MagickAnnotateImage(staff,
-			creator,
+    MagickAnnotateImage(staff,
+			drawer,
 			0,
 			rowIndex * aProfile->rows,
 			0,
 			line);   
-    */
-    //printf("\n");
+    
   }
-  MagickWriteImage(staff, outputFileName);
-  DestroyPixelWand(white);
-  DestroyPixelWand(black);
-  DestroyMagickWand(staff);
-  DestroyMagickWand(test);
-  DestroyDrawingWand(creator);
-  RelinquishMagickMemory(fm);
 }
 
-
-
+void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
+  //much slower due to individualy rendering each character(instead of rendering entire lines)
+  //but much more pretty output then the fast variant as of right now
+  char* charVal;
+  profileMatrix* aProfile;
+    for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
+      for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
+	charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
+	aProfile = pic->profiles[rowIndex][colIndex];
+	MagickAnnotateImage(staff,
+			    drawer,
+			    colIndex * aProfile->cols,
+			    rowIndex * aProfile->rows,
+			    0,
+			    charVal);
+	
+      }
+    }
+}
 
 
 
