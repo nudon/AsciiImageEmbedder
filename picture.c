@@ -121,12 +121,12 @@ image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight) {
   setDiffParam(diffParam);
   regionsx = (imageWidth - formatSpaceX) / (regionWidth + formatSpaceX);
   regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
+  regionsx = (imageWidth) / (regionWidth);
+  regionsy = (imageHeight) / (regionHeight);
   pic = readColorMatrixIntoImage(entireImage, regionsx, regionsy, regionWidth, regionHeight);
-  generateLightMarkScoresForImage(pic);
   generateLightMarkScoresForImage(pic);
   return pic;
 }
-
 
 
 
@@ -140,7 +140,7 @@ void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight) {
     PixelSetColor(white, "white");
     MagickWand* staff = NewMagickWand();
     DrawingWand* creator = NewDrawingWand();
-    status =  MagickNewImage(staff, 50,50, white);
+    status =  MagickNewImage(staff, 1,1, white);
     assert(status != MagickFalse && "blew up at new Image");
     status = DrawSetFont(creator, fontToUse);
     assert(status != MagickFalse && "blew up setting font");
@@ -150,12 +150,61 @@ void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight) {
     DrawSetFillColor(creator, white);
 
     double *fm = NULL;
-    char* str = "M";
-  
+    char* str = "";
+    //printFontDimForCharp(str, fontToUse, size);
     fm = MagickQueryFontMetrics(staff, creator, str);
+    //using character metrics, typically just equal to font size
+    *fontWidth = fm[0];  
+    *fontHeight = fm[1];
+    //using text metrics
+    //*fontWidth = fm[4];
+    //*fontHeight = fm[5];
+    //using bounding box
+    //*fontWidth = fm[9] - fm[7]; 
+    //*fontHeight = fm[10] - fm[8];
+
+    DestroyPixelWand(white);
+    DestroyDrawingWand(creator);
+    DestroyMagickWand(staff);
+    RelinquishMagickMemory(fm);
+}
+
+void printFontDimForCharp(char* str, char* fontToUse, int size) {
+   MagickBooleanType status;
+    PixelWand* white = NewPixelWand();
+    PixelSetColor(white, "white");
+    MagickWand* staff = NewMagickWand();
+    DrawingWand* creator = NewDrawingWand();
+    double * fontWidth = &(double){0};
+    double * fontHeight = &(double){0};
+    status =  MagickNewImage(staff, 1,1, white);
+    assert(status != MagickFalse && "blew up at new Image");
+    status = DrawSetFont(creator, fontToUse);
+    assert(status != MagickFalse && "blew up setting font");
+    DrawSetFontSize(creator, size);
+    status = PixelSetColor(white, "black");
+    //for text color
+    DrawSetFillColor(creator, white);
+
+    double *fm = NULL;
+    fprintf(stderr, "using \"%s\"\n", str);
+    fm = MagickQueryFontMetrics(staff, creator, str);
+    //using character metrics
+    fprintf(stderr, "using character\n");
     *fontWidth = fm[0];  //maybe use fm[9] - fm[7]
     *fontHeight = fm[1];  //maybe use fm[10] - fm[8]
-
+    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
+    //using text metrics
+    fprintf(stderr, "using text\n");
+    *fontWidth = fm[4];  //maybe use fm[9] - fm[7]
+    *fontHeight = fm[5];  //maybe use fm[10] - fm[8]
+    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
+    //using bounding box
+    fprintf(stderr, "using bounding box\n");
+    *fontWidth = fm[9] - fm[7];  //maybe use fm[9] - fm[7]
+    *fontHeight = fm[10] - fm[8];  //maybe use fm[10] - fm[8]
+    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
+    
     DestroyPixelWand(white);
     DestroyDrawingWand(creator);
     DestroyMagickWand(staff);
@@ -216,9 +265,14 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
       average = newColor();
       for(int suby = 0; suby < regHeight; suby++) {
 	for(int subx = 0; subx < regWidth; subx++) {
+	  /*
 	  aColor = getColor(entireImage,
 			    (regx - 1) * (regWidth + formatSpaceX) + subx,
 			    (regy - 1) * (regHeight + formatSpaceY) + suby);
+	  */
+	  aColor = getColor(entireImage,
+			    (regx - 1) * (regWidth) + subx,
+			    (regy - 1) * (regHeight) + suby);
 	  
 	  //copy into region
 	  setColor(regionColors, subx, suby, aColor);
@@ -331,7 +385,6 @@ myColor* calculateAverageColor(colorMatrix* colorMatrix) {
 
 
 
-
 void drawPicToDisk(image* pic, char* font, int fs) {
   MagickWand* staff = NewMagickWand();
   DrawingWand* creator = NewDrawingWand();
@@ -346,10 +399,20 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   int fontX;
   int fontY;
   getFontDim(font, fs, &fontX, &fontY);
+  int spacingX = getSpaceX();
+  int spacingY = getSpaceY();
+  int cols = pic->numberOfRegionCols;
+  int rows = pic->numberOfRegionRows;
+  int imgDimX = cols * (fontX + spacingX);
+  int imgDimY = rows * (fontY + spacingY);
+  //imgDimX = cols * (fontX);
+  //imgDimY = rows * (fontY);
   //  MagickNewImage(staff, pic->width, pic->height, white);
-  MagickNewImage(staff, pic->numberOfRegionCols * fontX, pic->numberOfRegionRows * fontY, white);
+  MagickNewImage(staff, imgDimX, imgDimY, white);
   DrawSetTextEncoding(creator, "UTF-8");
   slowDraw(pic, staff, creator);
+  //fastDraw(pic, staff, creator);
+  //superFastDraw(pic, staff, creator);
   MagickWriteImage(staff, outputFileName);
   DestroyPixelWand(white);
   DestroyPixelWand(black);
@@ -357,44 +420,66 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   DestroyDrawingWand(creator);
 }
 
-
-void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
+void superFastDraw (image* pic, MagickWand* staff, DrawingWand* drawer){
   //fast, but you can't set font spacing and can't force fonts to behave as monospace
   //
-  MagickBooleanType status;
-  char option[10];
-  char line[pic->numberOfRegionCols * sizeOfIMCharCode];
+  int rows = pic->numberOfRegionRows;
+  int cols = pic->numberOfRegionCols;
+  char line[rows *( cols * sizeOfIMCharCode + 1)];
   int lineIndex, len;
-  sprintf(option, "%d" , getSpaceX());
-  status = MagickSetOption(staff, "-interword-spacing", option);
-  if (status == MagickFalse) {
-    fprintf(stderr, "couldn't set font spacing, should use slow text rendering\n");
-  }
-  sprintf(option, "%d" , getSpaceY());
-  status = MagickSetOption(staff, "-interline-spacing", option);
-  if (status == MagickFalse) {
-    fprintf(stderr, "couldn't set font spacing, should use slow text rendering\n");
-  }
-  status = MagickSetOption(staff, "-not-actually-any-option-hopefully", "yeahno");
-  if (status == MagickTrue) {
-    fprintf(stderr, "can't determine success of setting options, glhf\n");
-  }
+  DrawSetTextInterlineSpacing(drawer, getSpaceY());
+  DrawSetTextInterwordSpacing(drawer, 0);
+  DrawSetTextKerning(drawer, getSpaceX());
   char* charVal;
-  profileMatrix* aProfile;
+  lineIndex = 0;
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
-    lineIndex = 0;
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
       charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
       len = strlen(charVal);
       memcpy(&line[lineIndex], charVal, len);
       lineIndex += len;
     }
-    aProfile = pic->profiles[rowIndex][0];
-    line[lineIndex] = '\0';
+    line[lineIndex++] = '\n';    
+  }
+  line[lineIndex++] = '\0';
+  MagickAnnotateImage(staff,
+		      drawer,
+		      0,
+		      0,
+		      0,
+		      line);   
+}
+
+void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
+  //fast, but you can't set font spacing and can't force fonts to behave as monospace
+  //
+  char line[pic->numberOfRegionCols * sizeOfIMCharCode];
+  int lineIndex, len;
+  int rows = pic->numberOfRegionRows;
+  int cols = pic->numberOfRegionCols;
+  int spaceY = getSpaceY();
+  int spaceX = getSpaceX();
+  int fontW = 0, fontH = 0;
+  fontW = pic->profiles[0][0]->cols;
+  fontH = pic->profiles[0][0]->rows;
+  DrawSetTextInterlineSpacing(drawer, spaceY);
+  DrawSetTextInterwordSpacing(drawer, 0);
+  DrawSetTextKerning(drawer, spaceX);
+  char* charVal;
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    lineIndex = 0;
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
+      charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
+      len = strlen(charVal);
+      memcpy(&line[lineIndex], charVal, len);
+      lineIndex += len;
+    }
+    //line[lineIndex++] = '\n';
+    line[lineIndex++] = '\0';
     MagickAnnotateImage(staff,
 			drawer,
 			0,
-			rowIndex * aProfile->rows,
+			rowIndex * (fontH + spaceY),
 			0,
 			line);   
     
@@ -405,15 +490,21 @@ void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
   //much slower due to individualy rendering each character(instead of rendering entire lines)
   //but much more pretty output then the fast variant as of right now
   char* charVal;
-  profileMatrix* aProfile;
-    for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
-      for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
+  int rows = pic->numberOfRegionRows;
+  int cols = pic->numberOfRegionCols;
+  int spaceY = getSpaceY();
+  int spaceX = getSpaceX();
+  int fontW = 0, fontH = 0;
+  fontW = pic->profiles[0][0]->cols;
+  fontH = pic->profiles[0][0]->rows;
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+
+      for (int colIndex = 0; colIndex < cols; colIndex++) {
 	charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
-	aProfile = pic->profiles[rowIndex][colIndex];
 	MagickAnnotateImage(staff,
 			    drawer,
-			    colIndex * aProfile->cols,
-			    rowIndex * aProfile->rows,
+			    colIndex * ( spaceX + fontW),
+			    (rowIndex + 1) * ( spaceY + fontH),
 			    0,
 			    charVal);
 	

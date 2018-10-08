@@ -19,6 +19,7 @@
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
+#include "browserbutton.h"
 #include "imagebuilder.h"
 #include "imageviewer.h"
 #include "optionsetter.h"
@@ -31,6 +32,7 @@ public:
     QWidget *centralWidget;
     QHBoxLayout *horizontalLayout;
     QVBoxLayout *options;
+    browserButton *pushButton_2;
     QWidget *input;
     QHBoxLayout *horizontalLayout_2;
     QLabel *label_4;
@@ -111,6 +113,11 @@ public:
         options = new QVBoxLayout();
         options->setSpacing(0);
         options->setObjectName(QStringLiteral("options"));
+        pushButton_2 = new browserButton(centralWidget);
+        pushButton_2->setObjectName(QStringLiteral("pushButton_2"));
+
+        options->addWidget(pushButton_2);
+
         input = new QWidget(centralWidget);
         input->setObjectName(QStringLiteral("input"));
         horizontalLayout_2 = new QHBoxLayout(input);
@@ -443,7 +450,6 @@ public:
 
         horizontalLayout->addLayout(images);
 
-        horizontalLayout->setStretch(0, 40);
         horizontalLayout->setStretch(1, 60);
         MainWindow->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(MainWindow);
@@ -474,6 +480,8 @@ public:
         QObject::connect(lineEdit_2, SIGNAL(returnPressed()), lineEdit_2, SLOT(gui_setInputFile()));
         QObject::connect(lineEdit_2, SIGNAL(input_file_changed(char*)), basePicture, SLOT(showNewImage(char*)));
         QObject::connect(pushButton, SIGNAL(released()), pushButton, SLOT(buildAsciiImage()));
+        QObject::connect(pushButton_2, SIGNAL(clicked()), pushButton_2, SLOT(browseFiles()));
+        QObject::connect(pushButton_2, SIGNAL(fileSelected(QString)), lineEdit_2, SLOT(gui_selectedInputFile(QString)));
 
         QMetaObject::connectSlotsByName(MainWindow);
     } // setupUi
@@ -481,6 +489,7 @@ public:
     void retranslateUi(QMainWindow *MainWindow)
     {
         MainWindow->setWindowTitle(QApplication::translate("MainWindow", "MainWindow", nullptr));
+        pushButton_2->setText(QApplication::translate("MainWindow", "Select input file", nullptr));
         label_4->setText(QApplication::translate("MainWindow", "Input File", nullptr));
         label_6->setText(QApplication::translate("MainWindow", "Output File", nullptr));
         lineEdit_3->setText(QApplication::translate("MainWindow", "output.png", nullptr));

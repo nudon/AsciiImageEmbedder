@@ -30,7 +30,8 @@ SOURCES += \
         optionsetter.cpp \
         imagegenerator.cpp \
     imagebuilder.cpp \
-    imageviewer.cpp
+    imageviewer.cpp \
+    browserbutton.cpp
 
 
 HEADERS += \
@@ -41,7 +42,8 @@ HEADERS += \
         #$$PWD/../picture.h \
     imagegenerator.h \
     imagebuilder.h \
-    imageviewer.h
+    imageviewer.h \
+    browserbutton.h
 
 OBJECTS += $$PWD/../chars.o \
            $$PWD/../region.o \

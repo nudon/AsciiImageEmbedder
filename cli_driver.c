@@ -33,14 +33,17 @@ int main(int argc, char * argv[]) {
   int regionWidth;
   int regionHeight;
   setDefaultOpts();
-  char* fontPath = getFont();
-  char* outputFileName = getOutputFile();
-  int fontSize = getFontSize();
+  char* fontPath;
+  char* outputFileName;
+  int fontSize;
 
   if (argc > 1) {
     fileName = argv[1];
     libInit();
     parseArgs(argc, argv);
+    fontPath = getFont();
+    outputFileName = getOutputFile();
+    fontSize = getFontSize();
     printf("Using font found at %s\n",fontPath );
     //for colormatrix
     //first, get metrics of font
@@ -57,6 +60,7 @@ int main(int argc, char * argv[]) {
       matchImageToCharacters(pic, charSet);
       fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
       drawPicToDisk(pic, fontPath, fontSize);
+      freeColorMatrix(entireImage);
       freeImage(pic);
       freeCharacterSet(charSet);
     }
@@ -138,6 +142,7 @@ void parseArgs(int argc, char* argv[]) {
     //font size
     if (findAndStoreMatch(token, fontSizeOpt, sizeOfValue, valueText) != -1) {
       intVal = atoi(valueText);
+      fprintf(stderr, "Setting font size to %d\n", intVal);
       setFontSize(intVal);
     }
     //font 

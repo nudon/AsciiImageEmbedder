@@ -19,12 +19,17 @@ profileMatrix* newProfileMatrix(colorMatrix* colors) {
   return new;
 }
 
+void freeLightmark(lightmark* rm) {
+  //color field is malloc'd elsewere, don't free here
+  free(rm);
+}
+
 void freeProfileMatrix(profileMatrix* rm) {
   freeIntMatrix(rm->diff);
   free(rm->edgeScores);
   freeColorMatrix(rm->source);
   freeColor(rm->averageColor);
-  free(rm->mark);
+  freeLightmark(rm->mark);
   free(rm);
 }
 

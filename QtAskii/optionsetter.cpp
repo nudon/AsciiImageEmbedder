@@ -1,5 +1,7 @@
 #include "optionsetter.h"
 #include "imagegenerator.h"
+
+#include <QFileDialog>
 extern "C" {
 void setFontSize(int);
 
@@ -221,5 +223,14 @@ void optionSetter::gui_setDistanceWeight(){
     QString textVal = QLineEdit::text();
     float numVal = QStringToDouble(textVal);
     setDistanceWeight(numVal);
+}
+
+
+void optionSetter::gui_selectedInputFile(QString newFile) {
+    this->setText(newFile);
+    char* charVal = QStringToCharp(newFile);
+    printf("new file is %s\n", charVal);
+    setInputFile(charVal);
+    emit optionSetter::input_file_changed(charVal);
 }
 

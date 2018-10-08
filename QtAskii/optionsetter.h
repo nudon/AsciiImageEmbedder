@@ -40,6 +40,8 @@ public slots:
     void gui_setLightnessScale();
     void gui_setHueScale();
 
+    void gui_selectedInputFile(QString newFile);
+
 signals:
     void input_file_changed(char* newFile);
 };

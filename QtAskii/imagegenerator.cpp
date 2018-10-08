@@ -48,8 +48,10 @@ ImageGenerator::ImageGenerator()
         }
         cs = buildCharacterSet(fontName, fontWidt, fontHeight, fontSize);
     }
-    matchImageToCharacters(tp, cs);
-    drawPicToDisk(tp, fontName, fontSize);
+    if (tp != nullptr && cs != nullptr) {
+        matchImageToCharacters(tp, cs);
+        drawPicToDisk(tp, fontName, fontSize);
+    }
     ImageGenerator::BasePicture = bp;
     ImageGenerator::TiledPicture = tp;
     ImageGenerator::characters = cs;
