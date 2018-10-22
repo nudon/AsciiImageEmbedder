@@ -8,17 +8,7 @@
 #include "characters.h"
 
 
-//thinking how to speed up
-//most of time in bigger pictures is in rendering to a picture
-//thinking it's because I'm doing that one character at a time
-//breaking it down into rendering by rows, or even all at once, should be quicker
 
-//for future ideas, could extend to image collages, essentially replacing characters with other pictures
-//could extend to make a gui deal so it's easeir to use. qt4/5 seems good, seems like i'll need to write some stuff in c++
-//should still be able to have most of my code in c, just figure out how to link thins in compiler stage
-//could add things for gifs as well(would want to speed up drawing to image process)
-
-//also, realized that mona doesn't cover all of hiragana blocks. It's probable that when I'm building the character set I can draw each character and determine through return code if there was some error. If so, then I could exluce the character from further use. Otherwise solving font-specific gaps is impossible
 
 colorMatrix* entireImage;
 image* pic;
@@ -28,8 +18,8 @@ int main(int argc, char * argv[]) {
   //outputFileName = malloc(sizeof(char) * pathLen);
   //fontName = malloc(sizeof(char) * pathLen);
   char* fileName;
-  int fontWidth;
-  int fontHeight;
+  float fontWidth;
+  float fontHeight;
   int regionWidth;
   int regionHeight;
   setDefaultOpts();
@@ -47,19 +37,19 @@ int main(int argc, char * argv[]) {
     printf("Using font found at %s\n",fontPath );
     //for colormatrix
     //first, get metrics of font
-    getFontDim(fontPath,fontSize, &fontWidth, &fontHeight);      
-    regionWidth = fontWidth;
-    regionHeight = fontHeight;
+    charSet = buildCharacterSet(fontPath, fontSize);
+    fontWidth = charSet->avgWidth;
+    fontHeight = charSet->avgHeight;
+    regionWidth = ceil(fontWidth);
+    regionHeight = ceil(fontHeight);
     printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
     //read filename into a colormatrix
-    entireImage = generateColorMatrix(fileName, fontWidth, fontHeight);
+    entireImage = generateColorMatrix(fileName, regionWidth, regionHeight);
     if (entireImage != NULL) {
-      pic = generateImage(entireImage, fontWidth, fontHeight);
-      //characterset
-      charSet = buildCharacterSet(fontPath, fontWidth, fontHeight, fontSize);
+      pic = generateImage(entireImage, regionWidth, regionHeight);
       matchImageToCharacters(pic, charSet);
       fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
-      drawPicToDisk(pic, fontPath, fontSize);
+      drawPicToDisk(pic, charSet);
       freeColorMatrix(entireImage);
       freeImage(pic);
       freeCharacterSet(charSet);
@@ -321,5 +311,5 @@ void setDefaultOpts() {
   setMissWeight(1);
   //strcpy(outputFileName, "output.jpg");
   setOutputFile("output.jpg");
-  setFont("comicSans.ttf");
+  setFont("DejaVuSansMono.ttf");
 }

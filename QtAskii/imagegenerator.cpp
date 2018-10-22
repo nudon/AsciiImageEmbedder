@@ -1,4 +1,5 @@
 #include "imagegenerator.h"
+#include <math.h>
 
 struct colorMatrix_struct* ImageGenerator::BasePicture = nullptr;
 struct image_struct* ImageGenerator::TiledPicture = nullptr;
@@ -23,34 +24,38 @@ ImageGenerator::ImageGenerator()
     char* fileName = getInputFile();
     char* fontName = getFont();
     int fontSize = getFontSize();
-    int fontWidt, fontHeight;
-    getFontDim(fontName, fontSize, &fontWidt, &fontHeight);
+    int fontWidth = 0, fontHeight = 0;
+    float floatW, floatH;
     colorMatrix_struct* bp = ImageGenerator::BasePicture;
     image_struct* tp = ImageGenerator::TiledPicture;
     characterSet_struct* cs = ImageGenerator::characters;
+    if (rebuildCharacterSet) {
+        if (cs != nullptr) {
+            freeCharacterSet(cs);
+        }
+        cs = buildCharacterSet(fontName, fontSize);
+    }
+    getFontDims(cs, &floatW, &floatH);
+    fontWidth = ceil(floatW);
+    fontHeight = ceil(floatH);
     if (rebuildBasePicture) {
         if (bp != nullptr) {
             freeColorMatrix(bp);
         }
-        bp = generateColorMatrix(fileName, fontWidt, fontHeight);
+        bp = generateColorMatrix(fileName, fontWidth, fontHeight);
         rebuildTiledPicture = true;
     }
     if (rebuildTiledPicture) {
         if (tp != nullptr) {
             freeImage(tp);
         }
-        tp = generateImage(bp, fontWidt, fontHeight);
+        tp = generateImage(bp, fontWidth, fontHeight);
     }
 
-    if (rebuildCharacterSet) {
-        if (cs != nullptr) {
-            freeCharacterSet(cs);
-        }
-        cs = buildCharacterSet(fontName, fontWidt, fontHeight, fontSize);
-    }
+
     if (tp != nullptr && cs != nullptr) {
         matchImageToCharacters(tp, cs);
-        drawPicToDisk(tp, fontName, fontSize);
+        drawPicToDisk(tp, cs);
     }
     ImageGenerator::BasePicture = bp;
     ImageGenerator::TiledPicture = tp;

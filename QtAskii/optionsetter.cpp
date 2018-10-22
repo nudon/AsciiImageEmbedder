@@ -75,7 +75,7 @@ void optionSetter::gui_setDefaultOpts() {
     //that way no way for initialized QlineEdit fields and actual set options to diverge
     //no cause then I can't access QlineEdit text, dummy
     const char* defOut = "output.png";
-    const char* defFont = "comicSans.ttf";
+    const char* defFont = "DejaVuSansMono.ttf";
     char* charOut = strdup(defOut);
     char* charFont = strdup(defFont);
     char* correctPath;

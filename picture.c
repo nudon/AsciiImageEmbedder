@@ -91,23 +91,21 @@ char* getFont() {
 }
 
 
-colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight) {
+colorMatrix* generateColorMatrix(char* fileName, int regionWidth, int regionHeight) {
   colorMatrix* entireImage = NULL;
   MagickWand* birch = NewMagickWand();
   MagickBooleanType status;
   MagickSetFirstIterator(birch);
   status = MagickReadImage(birch, fileName);
   if (status != MagickFalse) {
-    scaleImageToFitFont(birch, fontWidth, fontHeight);
+    scaleImageToFitFont(birch, regionWidth, regionHeight);
     entireImage = readWandIntoColorMatrix(birch, NULL);
   }
   DestroyMagickWand(birch);
   return entireImage;
 }
 
-image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight) {
-  int regionWidth = fontWidth;
-  int regionHeight = fontHeight;
+image* generateImage(colorMatrix* entireImage, int regionWidth, int regionHeight) {
   int imageWidth = entireImage->cols;
   int imageHeight = entireImage->rows;
   int diffParam, regionsx, regionsy;
@@ -128,89 +126,6 @@ image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight) {
   return pic;
 }
 
-
-
-void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight) {
-  //this is wrong
-  //for one, some fonts don't contain a M glyph
-  //second, even for monospace fonts that do, when creating and drawing to an image with resolution = numChars * charDim
-  //there is excess space, meaning that I miscalculated the actual font width/height
-    MagickBooleanType status;
-    PixelWand* white = NewPixelWand();
-    PixelSetColor(white, "white");
-    MagickWand* staff = NewMagickWand();
-    DrawingWand* creator = NewDrawingWand();
-    status =  MagickNewImage(staff, 1,1, white);
-    assert(status != MagickFalse && "blew up at new Image");
-    status = DrawSetFont(creator, fontToUse);
-    assert(status != MagickFalse && "blew up setting font");
-    DrawSetFontSize(creator, size);
-    status = PixelSetColor(white, "black");
-    //for text color
-    DrawSetFillColor(creator, white);
-
-    double *fm = NULL;
-    char* str = "";
-    //printFontDimForCharp(str, fontToUse, size);
-    fm = MagickQueryFontMetrics(staff, creator, str);
-    //using character metrics, typically just equal to font size
-    *fontWidth = fm[0];  
-    *fontHeight = fm[1];
-    //using text metrics
-    //*fontWidth = fm[4];
-    //*fontHeight = fm[5];
-    //using bounding box
-    //*fontWidth = fm[9] - fm[7]; 
-    //*fontHeight = fm[10] - fm[8];
-
-    DestroyPixelWand(white);
-    DestroyDrawingWand(creator);
-    DestroyMagickWand(staff);
-    RelinquishMagickMemory(fm);
-}
-
-void printFontDimForCharp(char* str, char* fontToUse, int size) {
-   MagickBooleanType status;
-    PixelWand* white = NewPixelWand();
-    PixelSetColor(white, "white");
-    MagickWand* staff = NewMagickWand();
-    DrawingWand* creator = NewDrawingWand();
-    double * fontWidth = &(double){0};
-    double * fontHeight = &(double){0};
-    status =  MagickNewImage(staff, 1,1, white);
-    assert(status != MagickFalse && "blew up at new Image");
-    status = DrawSetFont(creator, fontToUse);
-    assert(status != MagickFalse && "blew up setting font");
-    DrawSetFontSize(creator, size);
-    status = PixelSetColor(white, "black");
-    //for text color
-    DrawSetFillColor(creator, white);
-
-    double *fm = NULL;
-    fprintf(stderr, "using \"%s\"\n", str);
-    fm = MagickQueryFontMetrics(staff, creator, str);
-    //using character metrics
-    fprintf(stderr, "using character\n");
-    *fontWidth = fm[0];  //maybe use fm[9] - fm[7]
-    *fontHeight = fm[1];  //maybe use fm[10] - fm[8]
-    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
-    //using text metrics
-    fprintf(stderr, "using text\n");
-    *fontWidth = fm[4];  //maybe use fm[9] - fm[7]
-    *fontHeight = fm[5];  //maybe use fm[10] - fm[8]
-    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
-    //using bounding box
-    fprintf(stderr, "using bounding box\n");
-    *fontWidth = fm[9] - fm[7];  //maybe use fm[9] - fm[7]
-    *fontHeight = fm[10] - fm[8];  //maybe use fm[10] - fm[8]
-    fprintf(stderr, "font dims are x:%f pix and y:%f pix\n", *fontWidth, *fontHeight);
-    
-    DestroyPixelWand(white);
-    DestroyDrawingWand(creator);
-    DestroyMagickWand(staff);
-    RelinquishMagickMemory(fm);
-}
-
 void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
   //how to scale the image up/down for good tiling?
   //just have iterative ideas for scaling image up enough to tile ImgX % fontX == 0
@@ -223,7 +138,7 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
   remainingWidth = (fontw - (imageWidth % fontw)) % fontw;
   remainingHeight = (fonth - (imageHeight % fonth)) % fonth;
   //currently this just stretches the image to fit dim
-  //so while loop is escessive, but w/e
+  //so while loop is escessive
   while(remainingHeight != 0 || remainingWidth != 0) {
     imageWidth = (int)MagickGetImageWidth(staff);
     imageHeight = (int)MagickGetImageHeight(staff);
@@ -385,7 +300,9 @@ myColor* calculateAverageColor(colorMatrix* colorMatrix) {
 
 
 
-void drawPicToDisk(image* pic, char* font, int fs) {
+void drawPicToDisk(image* pic, characterSet* charSet) {
+  char* font = charSet->font;
+  int fs = charSet->fontSize;
   MagickWand* staff = NewMagickWand();
   DrawingWand* creator = NewDrawingWand();
   DrawSetFont(creator, font);
@@ -398,7 +315,8 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   MagickSetFirstIterator(staff);
   int fontX;
   int fontY;
-  getFontDim(font, fs, &fontX, &fontY);
+  fontX = ceil(charSet->avgWidth);
+  fontY = ceil(charSet->avgHeight);
   int spacingX = getSpaceX();
   int spacingY = getSpaceY();
   int cols = pic->numberOfRegionCols;
@@ -410,9 +328,9 @@ void drawPicToDisk(image* pic, char* font, int fs) {
   //  MagickNewImage(staff, pic->width, pic->height, white);
   MagickNewImage(staff, imgDimX, imgDimY, white);
   DrawSetTextEncoding(creator, "UTF-8");
-  slowDraw(pic, staff, creator);
+  //slowDraw(pic, staff, creator);
   //fastDraw(pic, staff, creator);
-  //superFastDraw(pic, staff, creator);
+  superFastDraw(pic, staff, creator);
   MagickWriteImage(staff, outputFileName);
   DestroyPixelWand(white);
   DestroyPixelWand(black);

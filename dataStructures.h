@@ -49,6 +49,8 @@ struct {
   myColor* color;
   float differenceFromMostLight;
   float differenceFromMostDark;
+  float setSpan;
+  float spanPercentile;
 } lightmark;
 
 //also some list, either general or specific
@@ -78,19 +80,20 @@ struct {
 
 typedef
 struct {
+  char* font;
+  int fontSize;
   character** characters;
+  float avgWidth;
+  float avgHeight;
   int length;
 } characterSet;
 
-//will contain image, some dimensions, probably some aspect ratio things as well,
-//as well as heigh/width of subRects
-//the filled chars will be some mirror array of the subRect array, which will get filled with respective matches
+
+//the filled chars will be some parallell array of the profile array, which will get filled with the closest character match to profile
 typedef
 struct {
-  //SDL_Surface/texture
   int width;
   int height;
-  //matrix ***?
   int numberOfRegionCols;
   int numberOfRegionRows;
   profileMatrix*** profiles;
@@ -173,4 +176,5 @@ lightmark* attatchLightmarkToProfile(profileMatrix* prof);
 void fillOutFields(gen_list* l);
 void findLADExtremes(gen_list* l, myColor* darkColor, myColor* lightColor);
 void storeLightmarkDifferences(gen_list* l, myColor* darkColor, myColor* lightColor);
+void storeSpanningInfo(gen_list* l, myColor* darkColor, myColor* lightColor);
 #endif

@@ -344,6 +344,7 @@ void fillOutFields(gen_list* l) {
   myColor Light;
   findLADExtremes(l, &Dark, &Light);
   storeLightmarkDifferences(l, &Dark, &Light);
+  storeSpanningInfo(l, &Dark, &Light);
 }
 
 
@@ -396,4 +397,23 @@ void storeLightmarkDifferences(gen_list* l, myColor* darkColor, myColor* lightCo
   }
 }
 
+void storeSpanningInfo(gen_list* l, myColor* darkColor, myColor* lightColor) {
+  //take darkval and lightval, take difference, store in span
+  //compute difference from currColor->lightness and darkval, store in colorSpan
+  //store colorSpan / span in spanPercentile
+  float darkVal, lightVal, span, colorSpan, tempVal ;
+  lightVal =lightColor->lightness;
+  darkVal = darkColor->lightness;
+  span = lightVal - darkVal;
+  lightmark* currData;
+  gen_node* current = l->start;
+  while(current != NULL) {
+    currData = (lightmark*)current->stored;
+    tempVal = currData->color->lightness;
+    colorSpan = tempVal - darkVal;
+    currData->setSpan = span;
+    currData->spanPercentile = colorSpan / span * 100;
+    current = current->next;
+  }
+}
 

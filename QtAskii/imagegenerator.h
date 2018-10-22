@@ -16,15 +16,16 @@ extern "C" {
     void setFont(char*);
     int getFontSize();
     void setFontSize(int);
-    void getFontDim(char*, int, int*, int*);
+    //void getFontDim(char*, int, int*, int*);
+    void getFontDims(characterSet* set, float* fontWidth, float* fontHeight);
     void freeColorMatrix(colorMatrix* rm);
     void freeImage(image* rm);
     void freeCharacterSet(characterSet* rm);
     colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight);
     image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight);
-    characterSet* buildCharacterSet(char* font, int fw, int fh, int fs);
+    characterSet* buildCharacterSet(char* font, int fs);
     void matchImageToCharacters(image* pic, characterSet* characterSet);
-    void drawPicToDisk(image* pic, char* font, int fs);
+    void drawPicToDisk(image* pic, characterSet* set);
 }
 
 

@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainwindow.ui'
 **
-** Created by: Qt User Interface Compiler version 5.11.1
+** Created by: Qt User Interface Compiler version 5.11.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -494,7 +494,7 @@ public:
         label_6->setText(QApplication::translate("MainWindow", "Output File", nullptr));
         lineEdit_3->setText(QApplication::translate("MainWindow", "output.png", nullptr));
         label_10->setText(QApplication::translate("MainWindow", "Set Font", nullptr));
-        lineEdit_7->setText(QApplication::translate("MainWindow", "comicSans.ttf", nullptr));
+        lineEdit_7->setText(QApplication::translate("MainWindow", "DejaVuSansMono.ttf", nullptr));
         label_11->setText(QApplication::translate("MainWindow", "Set Font Size", nullptr));
         lineEdit_8->setText(QApplication::translate("MainWindow", "10", nullptr));
         label12->setText(QApplication::translate("MainWindow", "Set x spacing", nullptr));

@@ -107,14 +107,14 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
   //param could either be for entire image, or individual regions
   
   int param;
-  if (locDiffParam > 0) {
+  if (locDiffParam >= 0) {
     param = locDiffParam;
   }
-  else if (diffParam > 0) {
+  else if (diffParam >= 0) {
     param = diffParam;
   }
   else {
-    fprintf(stderr, "neigher parameter or global diffParam was a valid number. Using a hardcoded parameter\n");
+    fprintf(stderr, "neitgher parameter or global diffParam was a valid number. Using a hardcoded parameter\n");
     param = 10;
   }
 
@@ -170,6 +170,7 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
 
 profileMatrix* generateProfileFromColor(colorMatrix* colors) {
   int diffParam = -1;
+  diffParam = averageCompareResults(colors);
   profileMatrix* profile = newProfileMatrix(colors);
   myColor* averageColor = calculateAverageColor(colors);
   profile->averageColor = averageColor;
@@ -784,7 +785,6 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 }
 
 
-float compareLightmarks(lightmark* lm1, lightmark* lm2);
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   float totScore, edgeScore, avgColorScore; 
   edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
@@ -862,6 +862,7 @@ float compareLightmarks(lightmark* lm1, lightmark* lm2) {
   float delta = 0;
   delta += fabs(lm1->differenceFromMostLight - lm2->differenceFromMostLight);
   delta += fabs(lm1->differenceFromMostDark - lm2->differenceFromMostDark);
+  delta = fabs(lm1->spanPercentile - lm2->spanPercentile);
   return delta;
 }
 

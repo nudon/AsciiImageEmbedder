@@ -36,10 +36,6 @@ colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight);
 
 image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight);
 
-void printFontDimForCharp(char* str, char* fontToUse, int size);
-
-void getFontDim(char* fontToUse, int size, int* fontWidth, int* fontHeight);
-
 void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth);
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight);
@@ -58,7 +54,7 @@ void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color);
 
 myColor* calculateAverageColor(colorMatrix* colorMatrix);
 
-void drawPicToDisk(image* pic, char* font, int fs);
+void drawPicToDisk(image* pic, characterSet* charSet);
 
 void superFastDraw (image* pic, MagickWand* staff, DrawingWand* drawer);
 

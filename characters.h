@@ -15,7 +15,15 @@ void setAsciiUsed(int new);
 void setHiraganaUsed(int new);
 void setKatakanaUsed(int new);
 
-characterSet* buildCharacterSet(char* font, int fw, int fh, int fs);
+void getFontDimForEnabledBlocks(char* fontToUse, int size, float* fontWidth, float* fontHeight);
+
+void printFontDimForCharp(char* str, char* fontToUse, int size);
+
+void getAvgFontDimForUnicodeBlock(char* fontToUse, int size, int blockStart, int blockEnd, float* fontWidth, float* fontHeight);
+
+void getFontDimForCharp(char* fontToUse, char* testText, int size, float* fontWidth, float* fontHeight);
+
+characterSet* buildCharacterSet(char* font, int fs);
 
 character* buildCharacterOfCodePoint(MagickWand* staff, DrawingWand* creator, colorMatrix* charColors, int intCode);
 

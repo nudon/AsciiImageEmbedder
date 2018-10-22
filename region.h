@@ -58,7 +58,10 @@ character* newCharacter();
 
 void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int diffParam);
 
+
 float compareProfiles(profileMatrix* p1, profileMatrix* p2);
+
+float compareLightmarks(lightmark* lm1, lightmark* lm2);
 
 float compareEdges(edges* e1, edges* e2);
 
