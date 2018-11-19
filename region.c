@@ -200,7 +200,8 @@ character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) 
 	return NULL;
       }
     }
-    
+    edges* foundEdges = calculateEdgeScores(prof);
+    prof->edgeScores = foundEdges;
   }
   return closestCharacterToProfile(prof, charSet);
 }
