@@ -117,6 +117,7 @@ image* generateImage(colorMatrix* entireImage, int regionWidth, int regionHeight
   //for image
   diffParam = averageCompareResults(entireImage);
   setDiffParam(diffParam);
+  fprintf(stderr, "spacing: x is %d, y is %d\n", formatSpaceX, formatSpaceX);
   regionsx = (imageWidth - formatSpaceX) / (regionWidth + formatSpaceX);
   regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
   regionsx = (imageWidth) / (regionWidth);
@@ -143,7 +144,7 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
     imageWidth = (int)MagickGetImageWidth(staff);
     imageHeight = (int)MagickGetImageHeight(staff);
     remainingWidth = (fontw - (imageWidth % fontw)) % fontw;
-    remainingHeight = (fonth - (imageHeight % fonth)) % fonth; 
+    remainingHeight = (fonth - (imageHeight % fonth)) % fonth;
     if (remainingHeight != 0) {
       //scale image so new image height = imageHeight + remainingHeight
       MagickScaleImage(staff, imageWidth, imageHeight + remainingHeight);
@@ -153,6 +154,9 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
       MagickScaleImage(staff, imageWidth + remainingWidth, imageHeight);
     }
   }
+  imageWidth = (int)MagickGetImageWidth(staff);
+  imageHeight = (int)MagickGetImageHeight(staff);
+  fprintf(stderr, "dims at end of scaling function: width is %d, height is %d\n", imageWidth, imageHeight);
 }
 
 
@@ -235,8 +239,7 @@ void matchImageToCharacters(image* pic, characterSet* characterSet) {
   int regionRows = pic->numberOfRegionRows;
   for(int regy = 1; regy <= regionRows; regy++) {
     for(int regx = 1; regx <= regionCols; regx++) {
-      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1],
-				    characterSet);
+      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1], characterSet);
       pic->filledCharacterss[regy - 1][regx - 1] = val;
       printf("%s", val->charVal);
     }
@@ -313,19 +316,24 @@ void drawPicToDisk(image* pic, characterSet* charSet) {
   PixelWand* white = NewPixelWand();
   PixelSetColor(white, "white");
   MagickSetFirstIterator(staff);
-  int fontX;
-  int fontY;
-  fontX = ceil(charSet->avgWidth);
-  fontY = ceil(charSet->avgHeight);
+  float fontX;
+  float fontY;
+  //no, bad, do integer truncation later in caluclations
+  //fontX = ceil(charSet->avgWidth);
+  //fontY = ceil(charSet->avgHeight);
+  fontX = charSet->avgWidth;
+  fontY = charSet->avgHeight;
   int spacingX = getSpaceX();
   int spacingY = getSpaceY();
   int cols = pic->numberOfRegionCols;
   int rows = pic->numberOfRegionRows;
-  int imgDimX = cols * (fontX + spacingX);
-  int imgDimY = rows * (fontY + spacingY);
+  int imgDimX = cols * (fontX + (float)spacingX);
+  int imgDimY = (rows + 1) * (fontY + (float)spacingY);
   //imgDimX = cols * (fontX);
   //imgDimY = rows * (fontY);
   //  MagickNewImage(staff, pic->width, pic->height, white);
+  //fprintf(stderr, "dims in image struct: width is %d, height is %d\n", pic->width, pic->height );
+  //fprintf(stderr, "dims used in drawing function: width is %d, height is %d\n", imgDimX, imgDimY);
   MagickNewImage(staff, imgDimX, imgDimY, white);
   DrawSetTextEncoding(creator, "UTF-8");
   //slowDraw(pic, staff, creator);
@@ -343,13 +351,18 @@ void superFastDraw (image* pic, MagickWand* staff, DrawingWand* drawer){
   //
   int rows = pic->numberOfRegionRows;
   int cols = pic->numberOfRegionCols;
-  char line[rows *( cols * sizeOfIMCharCode + 1)];
+  char line[rows *( cols * sizeOfIMCharCode + 1) + 1];
   int lineIndex, len;
+  int fontHeight = pic->height / pic->numberOfRegionRows;
+  //fixes drawing to image so first row isn't cut off
+  int yStart = (fontHeight + 1 + getSpaceY());
+  
   DrawSetTextInterlineSpacing(drawer, getSpaceY());
   DrawSetTextInterwordSpacing(drawer, 0);
   DrawSetTextKerning(drawer, getSpaceX());
   char* charVal;
   lineIndex = 0;
+
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
       charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
@@ -363,7 +376,7 @@ void superFastDraw (image* pic, MagickWand* staff, DrawingWand* drawer){
   MagickAnnotateImage(staff,
 		      drawer,
 		      0,
-		      0,
+		      yStart,
 		      0,
 		      line);   
 }
@@ -406,7 +419,8 @@ void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
 
 void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
   //much slower due to individualy rendering each character(instead of rendering entire lines)
-  //but much more pretty output then the fast variant as of right now
+  //only use is if you want to pretend that certain fonts are mono-space
+  //or if wasted cpu cycles are your primary source of heat
   char* charVal;
   int rows = pic->numberOfRegionRows;
   int cols = pic->numberOfRegionCols;
@@ -430,5 +444,186 @@ void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
     }
 }
 
+//working on less memory intensive solutions
+//these will only keep a single section/region of colors in memory at a time
+//not perfect, as imageMagick, specifically it's c api
+//has to load in entire image to memory.
+//however their representation is much more compact then mine
+
+//just scales image and returns wand
+MagickWand* mem_light_generateColorMatrix(char* fileName, int regionWidth, int regionHeight) {
+  colorMatrix* entireImage = NULL;
+  MagickWand* birch = NewMagickWand();
+  MagickBooleanType status;
+  MagickSetFirstIterator(birch);
+  status = MagickReadImage(birch, fileName);
+  if (status != MagickFalse) {
+    scaleImageToFitFont(birch, regionWidth, regionHeight);
+    //entireImage = readWandIntoColorMatrix(birch, NULL);
+  }
+  //DestroyMagickWand(birch);
+  return birch;
+}
+
+//
+image* mem_light_generateImage(MagickWand* imgWand, int regionWidth, int regionHeight) {
+  int imageWidth = (int)MagickGetImageWidth(imgWand);
+  int imageHeight = (int)MagickGetImageHeight(imgWand);
+  
+					
+  int diffParam, regionsx, regionsy;
+  image* pic = NULL;
+  
+  //thinking of doing this in readColorMatrixIntoImage
+  //so in one function, just have two loops iterating over pixels of some image
+  //diffParam = averageCompareResults(entireImage);
+  //setDiffParam(diffParam);
+  //also this region calculation may be wrong(?)
+  //this was for old way of doing formatSpacing,
+  //where I would skip over some pixels to match empty space lines
+  //mismatching how I set the number of regions and how I actually grab pixels
+  //could result in cropped images
+  //here's the regions that occur when you skip over some pixels
+  regionsx = (imageWidth - formatSpaceX) / (regionWidth + formatSpaceX);
+  regionsy = (imageHeight - formatSpaceY) / (regionHeight + formatSpaceY);
+  //here is what should be for when the spacing is purely in output
+  regionsx = (imageWidth) / (regionWidth);
+  regionsy = (imageHeight) / (regionHeight);
+  fprintf(stderr, "x regions: %d , y regions: %d\n", regionsx, regionsy);
+  pic = mem_light_readColorMatrixIntoImage(imgWand, regionsx, regionsy, regionWidth, regionHeight);
+  generateLightMarkScoresForImage(pic);
+  return pic;
+}
 
 
+
+image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int regRows, int regWidth, int regHeight) {
+  //this function, needs to read in or be passed in MagickWand w/ image loaded in
+  //iterate over it once, compute the average color diffs and average color
+  //then iterate over sections, copy into colorMatrix, build the diff matrixes
+  //then computing the edge scores
+  //then reusing the colorMatrix and also diff matrixes for the next section
+
+  PixelWand* aPixel = NewPixelWand();
+  int height = (int)MagickGetImageHeight(imgWand);
+  int width = (int)MagickGetImageWidth(imgWand);
+  image* pic = newImageByDim(width, height);
+  pic->filledCharacterss = newCharacterMatrix(regCols, regRows);
+  pic->numberOfRegionRows = regRows;
+  pic->numberOfRegionCols = regCols;
+  myColor* color = newColor();
+  myColor* average = newColor();
+  *average = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
+  //so, first traversal, keep track of average color, and also the average diff score
+  myColor* current = newColor();
+  myColor* compare = newColor();
+  long numPixels = height * width;
+  int testC, testR, testNumber;
+  long results = 0;
+  int numRuns = 0;
+  for(int colIndex = 0; colIndex < width; colIndex++) {
+    for(int rowIndex = 0; rowIndex < height; rowIndex++) {
+      MagickGetImagePixelColor(imgWand, colIndex, rowIndex, aPixel);
+      shovePixelWandIntoMyColor(aPixel, color);
+      //keep track of some average
+      addColorToColor(average, color);
+      
+      MagickGetImagePixelColor(imgWand, colIndex, rowIndex, aPixel);
+      shovePixelWandIntoMyColor(aPixel, current);
+      //compute the average compare result
+      testNumber = 1;
+      while(testNumber > 0) {
+	if (testNumber == 1) {
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	}
+	else if (testNumber == 2) {
+	  //pixel diagnol bottom right
+	  testR = rowIndex + 1;
+	}
+	else if (testNumber == 3) {
+	  //pixel below
+	  testC = colIndex;
+	}
+	else if (testNumber == 4) {
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  //...
+	  //don't set to zero,  I increment testNumber 
+	  testNumber = -10;
+	}
+	MagickGetImagePixelColor(imgWand, testC, testR, aPixel);
+	shovePixelWandIntoMyColor(aPixel, compare);
+	//eventually...
+	if (compare != NULL) {
+	  results += getPixelDif(current, compare);
+	  numRuns++;
+	}
+	testNumber++;
+      }
+    }
+  }
+  double avgComp = ((double)results)/numRuns;
+  setDiffParam(avgComp);
+  
+  divideColor(average, numPixels);
+  
+  //second traversla, this time building colormatrix, diffMatrix and edgescores
+  colorMatrix* section = newColorMatrix(regWidth, regHeight);
+  intMatrix* diff = createIntMatrixByDim(regWidth,regHeight);
+  int rowI;
+  int colI;
+  //setting to negative one means use the globally defined diffParam
+  //which was set above
+  int locDiffParam = -1;
+  numPixels = regHeight * regWidth;
+  profileMatrix* aProfile = NULL;
+  profileMatrix*** profiles = malloc(sizeof(profileMatrix*) * regRows);
+  pic->profiles = profiles;
+  for(int regy = 1; regy <= regRows; regy++) {
+    pic->profiles[regy - 1] = malloc(sizeof(profileMatrix*) * regCols);
+    for(int regx = 1; regx <= regCols; regx++) {
+      *average = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
+      for(int suby = 0; suby < regHeight; suby++) {
+	rowI = (regy - 1) * (regHeight) + suby;
+	//rowI = (regy - 1) * (regHeight + formatSpaceY) + suby;
+	for(int subx = 0; subx < regWidth; subx++) {
+	  colI = (regx - 1) * (regWidth) + subx;
+	  //colI = (regx - 1) * (regWidth + formatSpaceX) + subx;
+	  MagickGetImagePixelColor(imgWand, colI, rowI, aPixel);
+	  shovePixelWandIntoMyColor(aPixel, color);
+	  
+	  setColor(section, subx, suby, color);
+	  addColorToColor(average, color);
+	}
+      }
+      //went over an entire section, build diffMatrix and generate edgescores
+      //also have to deal with average color for section
+      aProfile = newProfileMatrix(section);
+      fillDiffMatrix(diff, aProfile, locDiffParam);
+      edges* foundEdges = calculateEdgeScores(aProfile);
+      aProfile->edgeScores = foundEdges;
+      //set diff/color sources to null so bad things don't happen when I free
+      aProfile->diff = NULL;
+      aProfile->source = NULL;
+      
+      divideColor(average, numPixels);
+      myColor* newAverage = newColor();
+      *newAverage = *average;
+      aProfile->averageColor = newAverage;
+
+      //finally set profile
+      pic->profiles[regy - 1][regx - 1] = aProfile;
+    }
+  }
+  
+  //after I'm done with second traversal...
+  free(color);
+  free(average);
+  DestroyPixelWand(aPixel);
+  freeColorMatrix(section);
+  freeIntMatrix(diff);
+
+  return pic;
+}

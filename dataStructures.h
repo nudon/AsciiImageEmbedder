@@ -125,6 +125,8 @@ void freeCharacterMatrix(character*** rm, int cols, int rows);
 
 intMatrix* createIntMatrix(profileMatrix* prof);
 
+intMatrix* createIntMatrixByDim(int cols, int rows);
+
 void freeIntMatrix(intMatrix* rm);
 
 myColor* newColor();
@@ -132,6 +134,8 @@ myColor* newColor();
 void freeColor(myColor* rm);
 
 image* newImage(colorMatrix* entireImage);
+
+image* newImageByDim(int cols, int rows);
  
 
 void freeImage(image* rm);
