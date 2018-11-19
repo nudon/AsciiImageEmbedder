@@ -44,13 +44,14 @@ int main(int argc, char * argv[]) {
     regionHeight = ceil(fontHeight);
     printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
     //read filename into a colormatrix
-    entireImage = generateColorMatrix(fileName, regionWidth, regionHeight);
+    MagickWand* entireImage = mem_light_generateColorMatrix(fileName, regionWidth, regionHeight);
+    //entireImage = generateColorMatrix(fileName, regionWidth, regionHeight);
     if (entireImage != NULL) {
-      pic = generateImage(entireImage, regionWidth, regionHeight);
+      pic = mem_light_generateImage(entireImage, regionWidth, regionHeight);
       matchImageToCharacters(pic, charSet);
       fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
       drawPicToDisk(pic, charSet);
-      freeColorMatrix(entireImage);
+      //freeColorMatrix(entireImage);
       freeImage(pic);
       freeCharacterSet(charSet);
     }
@@ -292,8 +293,8 @@ int indexOfChar(char* src, char search) {
 
 void setDefaultOpts() {
   setFontSize(10);
-  setSpaceX(0); // 1 on my terminal
-  setSpaceY(0); // 3 on my terminal
+  setSpaceX(1); // 1 on my terminal
+  setSpaceY(3); // 3 on my terminal
   setUseQuick(0);
   setUseAverageReduce(0);
   setAsciiUsed(1);
@@ -301,7 +302,7 @@ void setDefaultOpts() {
   setKatakanaUsed(0);
   setEdgeScoreWeight(1);
   setColorScoreWeight(1);
-  setSaturationScale(0);
+  setSaturationScale(1);
   setLightnessScale(1);
   setHueScale(0);
   setDistanceWeight(1);

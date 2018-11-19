@@ -62,4 +62,15 @@ void fastDraw(image* pic, MagickWand* staff, DrawingWand* drawer);
 
 void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer);
 
+MagickWand* mem_light_generateColorMatrix(char* fileName, int regionWidth, int regionHeight);
+
+//
+image* mem_light_generateImage(MagickWand* imgWand, int regionWidth, int regionHeight);
+
+
+//also need to hand in some MagickWand with img loaded into it
+image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int regRows, int regWidth, int regHeight);
+
+
+
 #endif

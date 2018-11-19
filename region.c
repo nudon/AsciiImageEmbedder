@@ -186,22 +186,21 @@ character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) 
   //then generate an edge scores based on diff matrix
   //then find a closest match to a character in charSet
   int locDiffParam = -1;
-  if (prof->diff == NULL) {
-    intMatrix* diff = createIntMatrix(prof);
-    prof->diff = diff;
-    if (prof->source != NULL) {
-      //locDiffParam = averageCompareResults(prof->source);
-      //autoSetColorComponentScale(prof->source);
-      fillDiffMatrix(diff, prof, locDiffParam);
-    }
-    else {
-      fprintf(stderr,"Error, given a profile with no colorMatrix\n");
-      return NULL;
-    }
-  }
   if (prof->edgeScores == NULL) {
-    edges* foundEdges = calculateEdgeScores(prof);
-    prof->edgeScores = foundEdges;
+    if (prof->diff == NULL) {
+      intMatrix* diff = createIntMatrix(prof);
+      prof->diff = diff;
+      if (prof->source != NULL) {
+	//locDiffParam = averageCompareResults(prof->source);
+	//autoSetColorComponentScale(prof->source);
+	fillDiffMatrix(diff, prof, locDiffParam);
+      }
+      else {
+	fprintf(stderr,"Error, given a profile with no colorMatrix\n");
+	return NULL;
+      }
+    }
+    
   }
   return closestCharacterToProfile(prof, charSet);
 }

@@ -92,9 +92,13 @@ void freeCharacterMatrix(character*** rm, int cols, int rows) {
 }
 
 intMatrix* createIntMatrix(profileMatrix* prof) {
+  return createIntMatrixByDim(prof->cols, prof->rows);
+}
+
+intMatrix* createIntMatrixByDim(int cols, int rows) {
   intMatrix* new = malloc(sizeof(intMatrix));
-  new->cols = prof->cols;
-  new->rows = prof->rows;
+  new->cols = cols;
+  new->rows = rows;
   new->ints = malloc(sizeof(int*) * new->cols);
   for(int colIndex = 0; colIndex < new->cols; colIndex++) {
     new->ints[colIndex] = malloc(sizeof(int) * new->rows);
@@ -106,11 +110,13 @@ intMatrix* createIntMatrix(profileMatrix* prof) {
 }
 
 void freeIntMatrix(intMatrix* rm) {
-  for(int colIndex = 0; colIndex < rm->cols; colIndex++) {
-    free(rm->ints[colIndex]);
+  if (rm != NULL) {
+    for(int colIndex = 0; colIndex < rm->cols; colIndex++) {
+      free(rm->ints[colIndex]);
+    }
+    free(rm->ints);
+    free(rm);
   }
-  free(rm->ints);
-  free(rm);
 }
 
 myColor* newColor() {
@@ -144,9 +150,13 @@ void divideColor(myColor* dest, int denom) {
 
 
 image* newImage(colorMatrix* entireImage) {
+  return newImageByDim(entireImage->cols, entireImage->rows);
+}
+
+image* newImageByDim(int cols, int rows) {
   image* new = malloc(sizeof(image));
-  new->width = entireImage->cols;;
-  new->height = entireImage->rows;;
+  new->width = cols;
+  new->height = rows;
   new->numberOfRegionCols = -1;
   new->numberOfRegionRows = -1;
   new->profiles = NULL;
