@@ -7,6 +7,7 @@
 typedef struct colorMatrix_struct colorMatrix;
 typedef struct image_struct image;
 typedef struct characterSet_struct characterSet;
+typedef struct MagickWand_struct MagickWand;
 extern "C" {
     char* getOutputFile();
     void setOutputFile(char*);
@@ -26,6 +27,13 @@ extern "C" {
     characterSet* buildCharacterSet(char* font, int fs);
     void matchImageToCharacters(image* pic, characterSet* characterSet);
     void drawPicToDisk(image* pic, characterSet* set);
+  
+    MagickWand* mem_light_generateColorMatrix(char* fileName, int regionWidth, int regionHeight);
+
+    image* mem_light_generateImage(MagickWand* imgWand, int regionWidth, int regionHeight);
+
+  MagickWand* DestroyMagickWand ( MagickWand * wand);
+  void ClearMagickWand (MagickWand *wand);
 }
 
 
@@ -45,7 +53,8 @@ private:
     static struct colorMatrix_struct* BasePicture;
     static struct image_struct* TiledPicture;
     static struct characterSet_struct* characters;
-
+    static struct MagickWand_struct* imgWand;
+  
 };
 
 

@@ -49,6 +49,7 @@ OBJECTS += $$PWD/../chars.o \
            $$PWD/../region.o \
            $$PWD/../picture.o \
            $$PWD/../dataStructures.o \
+           $$PWD/../options.o \
            $$PWD/../myList.o
 
 FORMS += \

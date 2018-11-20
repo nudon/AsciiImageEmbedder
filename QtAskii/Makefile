@@ -65,6 +65,7 @@ OBJECTS       = ../chars.o \
 		../region.o \
 		../picture.o \
 		../dataStructures.o \
+		../options.o \
 		../myList.o \
 		main.o \
 		mainwindow.o \
@@ -807,7 +808,8 @@ imagebuilder.o: imagebuilder.cpp imagebuilder.h \
 imageviewer.o: imageviewer.cpp imageviewer.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o imageviewer.o imageviewer.cpp
 
-browserbutton.o: browserbutton.cpp browserbutton.h
+browserbutton.o: browserbutton.cpp browserbutton.h \
+		imagegenerator.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o browserbutton.o browserbutton.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 

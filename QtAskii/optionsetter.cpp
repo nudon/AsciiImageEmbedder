@@ -33,6 +33,8 @@ void setSaturationScale(float);
 void setLightnessScale(float);
 void setHueScale(float);
 
+
+void setDefaultOpts();
 }
 
 char* QStringToCharp(QString q) {
@@ -79,7 +81,8 @@ void optionSetter::gui_setDefaultOpts() {
     char* charOut = strdup(defOut);
     char* charFont = strdup(defFont);
     char* correctPath;
-    setFontSize(10);
+    setDefaultOpts();
+    /*setFontSize(10);
     setSpaceX(0); // 1 on my terminal
     setSpaceY(0); // 3 on my terminal
     setUseQuick(0);
@@ -89,11 +92,14 @@ void optionSetter::gui_setDefaultOpts() {
     setKatakanaUsed(0);
     setEdgeScoreWeight(1);
     setColorScoreWeight(1);
-    setSaturationScale(0);
+    setSaturationScale(1);
     setLightnessScale(1);
     setHueScale(0);
     setDistanceWeight(1);
     //strcpy(outputFileName, "output.jpg");
+    setOutputFile(charOut);
+    mySetFont(charFont);
+    */
     setOutputFile(charOut);
     mySetFont(charFont);
     free(charOut);

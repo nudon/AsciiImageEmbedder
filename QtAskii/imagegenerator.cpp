@@ -4,6 +4,7 @@
 struct colorMatrix_struct* ImageGenerator::BasePicture = nullptr;
 struct image_struct* ImageGenerator::TiledPicture = nullptr;
 struct characterSet_struct* ImageGenerator::characters = nullptr;
+struct MagickWand_struct* ImageGenerator::imgWand = nullptr;
 
 bool ImageGenerator::rebuildBasePicture = true;
 bool ImageGenerator::rebuildTiledPicture = true;
@@ -26,6 +27,7 @@ ImageGenerator::ImageGenerator()
     int fontSize = getFontSize();
     int fontWidth = 0, fontHeight = 0;
     float floatW, floatH;
+    MagickWand_struct* iw = ImageGenerator::imgWand;
     colorMatrix_struct* bp = ImageGenerator::BasePicture;
     image_struct* tp = ImageGenerator::TiledPicture;
     characterSet_struct* cs = ImageGenerator::characters;
@@ -42,14 +44,20 @@ ImageGenerator::ImageGenerator()
         if (bp != nullptr) {
             freeColorMatrix(bp);
         }
-        bp = generateColorMatrix(fileName, fontWidth, fontHeight);
+        if (iw != nullptr) {
+        ClearMagickWand(iw);
+        DestroyMagickWand(iw);
+	}
+        //bp = generateColorMatrix(fileName, fontWidth, fontHeight);
+        iw = mem_light_generateColorMatrix(fileName, fontWidth, fontHeight);
         rebuildTiledPicture = true;
     }
     if (rebuildTiledPicture) {
         if (tp != nullptr) {
             freeImage(tp);
         }
-        tp = generateImage(bp, fontWidth, fontHeight);
+        //tp = generateImage(bp, fontWidth, fontHeight);
+	tp = mem_light_generateImage(iw, fontWidth, fontHeight);
     }
 
 

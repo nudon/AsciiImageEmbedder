@@ -65,6 +65,7 @@ OBJECTS       = /home/nudon/prg/asciiImage/QtAskii/../chars.o \
 		/home/nudon/prg/asciiImage/QtAskii/../region.o \
 		/home/nudon/prg/asciiImage/QtAskii/../picture.o \
 		/home/nudon/prg/asciiImage/QtAskii/../dataStructures.o \
+		/home/nudon/prg/asciiImage/QtAskii/../options.o \
 		/home/nudon/prg/asciiImage/QtAskii/../myList.o \
 		main.o \
 		mainwindow.o \

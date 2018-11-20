@@ -1,5 +1,5 @@
 #include "browserbutton.h"
-#
+#include "imagegenerator.h"
 #include <QFileDialog>
 browserButton::browserButton()
 {
@@ -17,6 +17,7 @@ void browserButton::browseFiles(){
           tr("Select Input Image"), openedDir, tr("Image Files (*.png *.jpg)"));
     openedDir.chop(openedDir.size());
     openedDir.append(selectedFile);
+    ImageGenerator::setRebuildBasePicture(true);
     emit browserButton::fileSelected(selectedFile);
 
 }
