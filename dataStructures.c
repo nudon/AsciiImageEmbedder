@@ -16,6 +16,7 @@ profileMatrix* newProfileMatrix(colorMatrix* colors) {
   new->edgeScores = NULL;
   new->diff = NULL;
   new->mark = NULL;
+  new->neighborEdgeDiff = 0;
   return new;
 }
 
@@ -179,6 +180,16 @@ void freeImage(image* rm) {
   }
   free(rm->profiles);
   free(rm);
+}
+
+profileMatrix* getProfile(image* pic, int rowI, int colI) {
+  if (rowI > 0 && rowI < pic->numberOfRegionRows &&
+      colI > 0 && colI < pic->numberOfRegionCols) {
+    return pic->profiles[rowI][colI];
+  }
+  else {
+    return NULL;
+  }
 }
 
 characterSet* newCharacterSet(int size) {

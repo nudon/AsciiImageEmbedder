@@ -66,6 +66,7 @@ struct {
   colorMatrix* source;
   myColor* averageColor;
   lightmark* mark;
+  double neighborEdgeDiff;
 } profileMatrix;
 
 
@@ -139,6 +140,8 @@ image* newImageByDim(int cols, int rows);
  
 
 void freeImage(image* rm);
+
+profileMatrix* getProfile(image* pic, int rowI, int colI);
 
 character* newCharacter();
 

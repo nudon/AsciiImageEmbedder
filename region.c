@@ -168,6 +168,28 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
   }
 }
 
+
+//in diff, stores maximum differences between neighboring pixels
+void fillDiffMatrixAlt(  intMatrix* detectedEdges, profileMatrix* prof) {
+
+  int rows = prof->source->rows;
+  int cols = prof->source->cols;
+  int val;
+  for (int colIndex = 0; colIndex < cols; colIndex++) {
+    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
+    }
+  }
+  //reverse for header order?
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
+      val = max_neighbor_diff(prof, colIndex, rowIndex);
+      setDiffAtIndex(detectedEdges,colIndex,rowIndex, val);
+    }
+  }
+}
+
+
 profileMatrix* generateProfileFromColor(colorMatrix* colors) {
   int diffParam = -1;
   diffParam = averageCompareResults(colors);
@@ -176,6 +198,8 @@ profileMatrix* generateProfileFromColor(colorMatrix* colors) {
   profile->averageColor = averageColor;
   intMatrix* difs = createIntMatrix(profile);
   fillDiffMatrix(difs, profile, diffParam);
+  //fillDiffMatrixAlt(difs, profile);
+  profile->diff = difs;
   calculateEdgeScores(profile);
   return profile;
 }
@@ -213,6 +237,9 @@ edges* calculateEdgeScores(profileMatrix* prof) {
   }
   else {
     ret = betterPopulateEdges(prof);
+  }
+  if (useAverageReduce) {
+    averageReduceEdgeScores(ret);
   }
   return ret;
 }
@@ -542,9 +569,6 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       checkType = doneChecking;
     }
   }
-  if (useAverageReduce) {
-    averageReduceEdgeScores(foundEdges);
-  }
   prof->edgeScores = foundEdges;
   return foundEdges;
 }
@@ -585,7 +609,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   }
   float distanceDecay;
   float distanceDecayAmount;
-  
+;
 
   int diff;
   //stands for both out of bound
@@ -593,7 +617,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   //you know what would be cool? if I initialized it to zero
   int bothOOB = 0;
 
-
+  
   if (whichCheck == topCheck ||whichCheck ==  bottomCheck ||whichCheck ==  tableCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = 0;
@@ -627,14 +651,15 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   //printf("start cords are: %d , %d\n", colCur, rowCur);
   //printf("end cords are  : %d , %d\n", colCur + colCheckRad, rowCur + rowCheckRad);
   //had an error here
-  //checked bothOOB != 2 last, so if previouse 
+  //checked bothOOB != 2 last, so if previouse
+  
   while(orthogonalTraverse(colCur, rowCur,
 			   &colOrthOff, &rowOrthOff, 
 			   colCur + colCheckRad, rowCur + rowCheckRad) != 1
 	&& bothOOB != 2){
     bothOOB = 0;
     //printf("current offsets are: %d , %d\n", colOrthOff, rowOrthOff);
-    diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);
+    diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);;
     if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount * distanceDecay;
 	hitWeight *= hitDecay;
@@ -786,6 +811,9 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
+  if (0) {
+    return compareProfilesVar(p1, p2);
+  }
   float totScore, edgeScore, avgColorScore; 
   edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
   avgColorScore = getPixelDif(p1->averageColor, p2->averageColor);
@@ -793,18 +821,30 @@ float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
   edgeScore *= edgeScoreWeight;
   avgColorScore *= colorScoreWeight;
   totScore = edgeScore + avgColorScore;
-  //so, looking nice, only issue is dark regions are usually whitespace because crushed blacks
-  //observation is, things with high edge scores in everything  are similar to those with low edge scores,
-  //try and do something with that
-  //question is, how? maybe do some stats, like take standard deviation or something of all edges
-  //compare that instead? doesn't exactly work out.
-  //would seem like there's just a special case, where
-  //suddenlyidea
-  //for edges, take average of edgeScores, then subtract off from each component.
-  //negative edges are ?, but otherwise seems like a good idea.
-  //didn't totally work, but seemed cool.
   return totScore;
 }
+
+//kind of prototype version that does has a variable weight for edge/colorscores
+float compareProfilesVar(profileMatrix* regP, profileMatrix* charP) {
+  float totScore, edgeScore, avgColorScore;
+  edgeScore = compareEdges(regP->edgeScores, charP->edgeScores);
+  avgColorScore = getPixelDif(regP->averageColor, charP->averageColor);
+  avgColorScore = compareLightmarks(regP->mark, charP->mark);
+  if (regP->neighborEdgeDiff < 0) {
+    //it's a so-called meta-edge, give edgescore
+    edgeScore *= 1;
+    avgColorScore *= 0;
+  }
+  else {
+    edgeScore *= 0;
+    avgColorScore *= 1;
+  }
+  //edgeScore *= edgeScoreWeight;
+  //avgColorScore *= colorScoreWeight;
+  totScore = edgeScore + avgColorScore;
+  return totScore;
+}
+
 
 float compareEdges(edges* e1, edges* e2) {
   //compares two edges
@@ -860,8 +900,8 @@ float compareEdges(edges* e1, edges* e2) {
 
 float compareLightmarks(lightmark* lm1, lightmark* lm2) {
   float delta = 0;
-  delta += fabs(lm1->differenceFromMostLight - lm2->differenceFromMostLight);
-  delta += fabs(lm1->differenceFromMostDark - lm2->differenceFromMostDark);
+  //delta += fabs(lm1->differenceFromMostLight - lm2->differenceFromMostLight);
+  //delta += fabs(lm1->differenceFromMostDark - lm2->differenceFromMostDark);
   delta = fabs(lm1->spanPercentile - lm2->spanPercentile);
   return delta;
 }
@@ -905,7 +945,24 @@ void averageReduceEdgeScores(edges* edges) {
       temp = &(edges->backward);
       whichCheck = doneChecking;
     }
+    //test, checking if zeroing out sub-average edges is a good itea
+    //would be weird, because current'y I'm allowing negative values...
+    //will have some sentinal value in meantime,
     *temp = *temp - average;
+    
+    if (*temp < 0) {
+      *temp = 0;
+    }
+
+    /*
+    int SENT = -9999;
+    if (*temp < average) {
+      *temp = SENT;
+    }
+    */
+
+    //old way
+    //*temp = *temp - average;
   }
   
 }
@@ -1073,4 +1130,226 @@ int sameIntMatrix(intMatrix* m1, intMatrix* m2) {
     }
   }
   return ret;
+}
+
+
+void test(image* pic) {
+  //sort of prototype function for how I want to do the new color/edge score preference
+
+  //relized I could do this in 2 very simple steps
+
+  //first, after calculating edge scores for everything,
+  //traverse edge scores, compute pairwise distance between adjacent edge scores, get some average.
+
+  //for implementation, could do multiple things
+  //could either do double[][],s or use a gen_matrix
+
+  //second, for storing results of comparisions, could either re-use double[][] or gen_matrix, or add a field to profiles to hold it
+
+  //will go for double[][] and fields storage of results,
+
+
+  //also, realized in the compare edges I could have 3 cases
+  //if thing is marked as an edge and meta-edge, purely use edge scores
+  //if thing isn't an edge and has less than average neigbor-edge comparision, use purely color
+  //otherwise use both equally or supplied by user.
+  //actually that's dumb because I only have meta-edge/non-meta-edge distinctions. I have edge scores for everything but don't have edges/non-edges for profiles
+  //image *pic;
+  profileMatrix *curr, *comp;
+  int testC, testR, testNumber, compCount = 0;
+  double compTot = 0, compAvg = -1;
+  for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
+    for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
+      curr = pic->profiles[rowIndex][colIndex];
+      testNumber = 1;
+      while(testNumber > 0) {
+	if (testNumber == 1) {
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	}
+	else if (testNumber == 2) {
+	  //pixel diagnol bottom right
+	  testR = rowIndex + 1;
+	}
+	else if (testNumber == 3) {
+	  //pixel below
+	  testC = colIndex;
+	}
+	else if (testNumber == 4) {
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  //...
+	  //don't set to zero,  I increment testNumber 
+	  testNumber = -10;
+	}
+	testNumber++;
+	comp = getProfile(pic, testR,testC);
+	if (comp != NULL) {
+	  //find difference between edges
+	  compTot += compareEdges(curr->edgeScores, comp->edgeScores);
+	  compCount++;
+	  
+	}
+      }
+    }
+  }
+  compAvg = compTot / compCount;
+  //part 1 done
+      
+  
+  //second, retraverse, compute average edge scores between neighbors,
+  int regionCount;
+  double regionTot, regionAvg;
+  for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
+    for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
+      regionCount = 0;
+      regionTot = 0;
+      regionAvg = 0;
+      curr = pic->profiles[rowIndex][colIndex];
+      testNumber = 1;
+      while(testNumber > 0) {
+	//modified version, has to compute all 8 neighbors
+	switch(testNumber) {
+	case 1:
+	  //pixel to right
+	  testC = colIndex + 1;
+	  testR = rowIndex;
+	  break;
+	case 2:
+	    //pixel diagnol bottom right
+	  testC = colIndex;
+	  testR = rowIndex + 1;
+	  break;
+	case 3:
+	  //pixel below
+	  testC = colIndex;
+	  testR = rowIndex + 1;
+	  break;
+	case 4:
+	  //pixel diagnol bottom left
+	  testC = colIndex - 1;
+	  testR = rowIndex + 1;
+	  break;
+	case 5:
+	  //pixel to left
+	  testC = colIndex - 1;
+	  testR = rowIndex;
+	  break;
+	case 6 :
+	  //pixel diagnol top left
+	  testC = colIndex - 1;
+	  testR = rowIndex - 1;
+	  break;
+	case 7:
+	  //pixel is above
+	  testC = colIndex;
+	  testR = rowIndex - 1;
+	  break;
+	case 8:
+	  //pixel is top right
+	  testC = colIndex + 1;
+	  testR = rowIndex - 1;
+	  //end loop
+	  testNumber = -10;
+	  break;
+	default:
+   
+	  break;
+	}
+
+	testNumber++;
+	comp = getProfile(pic, testR,testC);
+	if (comp != NULL) {
+	  //find difference between edges
+	  regionTot += compareEdges(curr->edgeScores, comp->edgeScores);
+	  regionCount++;
+	  
+	}
+      }
+      //computed difference
+      regionAvg = regionTot / regionCount;
+      curr->neighborEdgeDiff = regionAvg - compAvg;
+    }
+  }
+  //if average neighbor distance is greater than pictures total avg
+  //then either dramatically increase edgescore wieght or set color score to 0 weight
+  //otherwise swap out the score increases/decreases
+
+  //realized I could also do this with my edge detection
+  //since that's currently marking edges if a single neighbor difference is greater than the average
+  //could change it so it looks across all neighbors. 
+  
+}
+
+
+int max_neighbor_diff(profileMatrix* prof, int x, int y) {
+  int testNumber = 1;
+  int max = -1, temp = 0;
+  myColor *curr, *test;
+  curr = getColor(prof->source, x, y);
+  int colIndex = x;
+  int rowIndex = y;
+  int testC = x;
+  int testR = y;
+  while(testNumber > 0) {
+    //modified version, has to compute all 8 neighbors
+    switch(testNumber) {
+    case 1:
+      //pixel to right
+      testC = colIndex + 1;
+      testR = rowIndex;
+      break;
+    case 2:
+      //pixel diagnol bottom right
+      testC = colIndex;
+      testR = rowIndex + 1;
+      break;
+    case 3:
+      //pixel below
+      testC = colIndex;
+      testR = rowIndex + 1;
+      break;
+    case 4:
+      //pixel diagnol bottom left
+      testC = colIndex - 1;
+      testR = rowIndex + 1;
+      break;
+    case 5:
+      //pixel to left
+      testC = colIndex - 1;
+      testR = rowIndex;
+      break;
+    case 6 :
+      //pixel diagnol top left
+      testC = colIndex - 1;
+      testR = rowIndex - 1;
+      break;
+    case 7:
+      //pixel is above
+      testC = colIndex;
+      testR = rowIndex - 1;
+      break;
+    case 8:
+      //pixel is top right
+      testC = colIndex + 1;
+      testR = rowIndex - 1;
+      //end loop
+      testNumber = -10;
+      break;
+    default:
+   
+      break;
+    }
+    
+    testNumber++;
+    test = getColor(prof->source, testC, testR);
+    if (test != NULL) {
+      temp = abs(getPixelDif(curr, test));
+      if (temp > max) {
+	max = temp;
+      }
+    }
+  }
+  return max;
 }

@@ -45,13 +45,19 @@ int main(int argc, char * argv[]) {
     printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
     //read filename into a colormatrix
     MagickWand* entireImage = mem_light_generateColorMatrix(fileName, regionWidth, regionHeight);
-    //entireImage = generateColorMatrix(fileName, regionWidth, regionHeight);
+    
+    //colorMatrix* entireImage = generateColorMatrix(fileName, regionWidth, regionHeight);
     if (entireImage != NULL) {
       pic = mem_light_generateImage(entireImage, regionWidth, regionHeight);
+      DestroyMagickWand(entireImage);
+      
+      //pic = generateImage(entireImage, regionWidth, regionHeight);
+      //freeColorMatrix(entireImage);
+      //test(pic);
       matchImageToCharacters(pic, charSet);
       fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
       drawPicToDisk(pic, charSet);
-      //freeColorMatrix(entireImage);
+
       freeImage(pic);
       freeCharacterSet(charSet);
     }

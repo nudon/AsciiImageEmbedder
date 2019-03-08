@@ -156,7 +156,7 @@ void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth) {
   }
   imageWidth = (int)MagickGetImageWidth(staff);
   imageHeight = (int)MagickGetImageHeight(staff);
-  fprintf(stderr, "dims at end of scaling function: width is %d, height is %d\n", imageWidth, imageHeight);
+  //fprintf(stderr, "dims at end of scaling function: width is %d, height is %d\n", imageWidth, imageHeight);
 }
 
 
@@ -241,9 +241,9 @@ void matchImageToCharacters(image* pic, characterSet* characterSet) {
     for(int regx = 1; regx <= regionCols; regx++) {
       val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1], characterSet);
       pic->filledCharacterss[regy - 1][regx - 1] = val;
-      printf("%s", val->charVal);
+      //printf("%s", val->charVal);
     }
-    printf("\n");
+    //printf("\n");
   }
 }
 
@@ -461,7 +461,9 @@ MagickWand* mem_light_generateColorMatrix(char* fileName, int regionWidth, int r
     scaleImageToFitFont(birch, regionWidth, regionHeight);
     //entireImage = readWandIntoColorMatrix(birch, NULL);
   }
-  //DestroyMagickWand(birch);
+  else {
+    birch = NULL;
+  }
   return birch;
 }
 
@@ -521,6 +523,7 @@ image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int 
   int testC, testR, testNumber;
   long results = 0;
   int numRuns = 0;
+  //printf("Traversing entire picture, getting color and diff vals\n");
   for(int colIndex = 0; colIndex < width; colIndex++) {
     for(int rowIndex = 0; rowIndex < height; rowIndex++) {
       MagickGetImagePixelColor(imgWand, colIndex, rowIndex, aPixel);
@@ -564,7 +567,9 @@ image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int 
       }
     }
   }
+  //printf("done traversing entire picture\n\n");
   double avgComp = ((double)results)/numRuns;
+  //printf("Here's the diff thing: %f\n", avgComp);
   setDiffParam(avgComp);
   
   divideColor(average, numPixels);
@@ -585,6 +590,7 @@ image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int 
     pic->profiles[regy - 1] = malloc(sizeof(profileMatrix*) * regCols);
     for(int regx = 1; regx <= regCols; regx++) {
       *average = (myColor){.hue = 0, .sat = 0, .lightness = 0, .red =0, .green = 0, .blue = 0};
+      //printf("Reading part of image in to a section\n");
       for(int suby = 0; suby < regHeight; suby++) {
 	rowI = (regy - 1) * (regHeight) + suby;
 	//rowI = (regy - 1) * (regHeight + formatSpaceY) + suby;
@@ -598,11 +604,14 @@ image* mem_light_readColorMatrixIntoImage(MagickWand* imgWand, int regCols, int 
 	  addColorToColor(average, color);
 	}
       }
+      //printf("done reading section\n\n");
       //went over an entire section, build diffMatrix and generate edgescores
       //also have to deal with average color for section
       aProfile = newProfileMatrix(section);
       fillDiffMatrix(diff, aProfile, locDiffParam);
+      //printf("calculating edge scores\n");
       edges* foundEdges = calculateEdgeScores(aProfile);
+      //printf("done calculating edge scores\n\n");
       aProfile->edgeScores = foundEdges;
       //set diff/color sources to null so bad things don't happen when I free
       aProfile->diff = NULL;

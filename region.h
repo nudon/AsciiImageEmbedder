@@ -44,6 +44,8 @@ profileMatrix* generateProfileFromColor(colorMatrix* colors);
 
 character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet);
 
+float compareProfilesVar(profileMatrix* regP, profileMatrix* charP);
+
 edges* calculateEdgeScores(profileMatrix* prof);
 
 edges* betterPopulateEdges(profileMatrix* prof);
@@ -80,5 +82,11 @@ int getNonColorPixelDiff(myColor* c1, myColor* c2);
 void autoSetColorComponentScale(colorMatrix* source);
 
 int sameIntMatrix(intMatrix* m1, intMatrix* m2);
+
+void  test(image* pic);
+
+int max_neighbor_diff(profileMatrix* prof, int x, int y);
+
+void fillDiffMatrixAlt(  intMatrix* detectedEdges, profileMatrix* prof);
 
 #endif
