@@ -6,13 +6,13 @@
 typedef
 struct {
   //some color
-  double hue;
-  double sat;
-  double lightness;
+  int hue;
+  int sat;
+  int lightness;
   
-  double red;
-  double green;
-  double blue;
+  int red;
+  int green;
+  int blue;
   
 } myColor;
 

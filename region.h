@@ -12,7 +12,6 @@
 // the otheer, doing some kind of edge detection?
 //idea was to reduce lines/edges into horizontal, vertical, diagnol, would compare the edge profiles to find a similar match
 
-
 /*
 //datasctructures so my c++ files can do things
 extern colorMatrix* entireImage;
@@ -42,7 +41,7 @@ int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, 
 
 profileMatrix* generateProfileFromColor(colorMatrix* colors);
 
-character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet);
+character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
 float compareProfilesVar(profileMatrix* regP, profileMatrix* charP);
 

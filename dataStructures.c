@@ -100,11 +100,11 @@ intMatrix* createIntMatrixByDim(int cols, int rows) {
   intMatrix* new = malloc(sizeof(intMatrix));
   new->cols = cols;
   new->rows = rows;
-  new->ints = malloc(sizeof(int*) * new->cols);
-  for(int colIndex = 0; colIndex < new->cols; colIndex++) {
-    new->ints[colIndex] = malloc(sizeof(int) * new->rows);
-    for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
-      new->ints[colIndex][rowIndex] = 0;
+  new->ints = malloc(sizeof(int*) * new->rows);
+  for(int rowIndex = 0; rowIndex < new->rows; rowIndex++) {
+    new->ints[rowIndex] = malloc(sizeof(int) * new->cols);
+    for(int colIndex = 0; colIndex < new->cols; colIndex++) {
+      new->ints[rowIndex][colIndex] = 0;
     }
   }
   return new;
@@ -183,8 +183,8 @@ void freeImage(image* rm) {
 }
 
 profileMatrix* getProfile(image* pic, int rowI, int colI) {
-  if (rowI > 0 && rowI < pic->numberOfRegionRows &&
-      colI > 0 && colI < pic->numberOfRegionCols) {
+  if (rowI >= 0 && rowI < pic->numberOfRegionRows &&
+      colI >= 0 && colI < pic->numberOfRegionCols) {
     return pic->profiles[rowI][colI];
   }
   else {
@@ -254,7 +254,7 @@ int getDiffAtIndex(intMatrix* diffMatrix, int col, int row) {
     return diffErr;
   }
   else {
-    return diffMatrix->ints[col][row];
+    return diffMatrix->ints[row][col];
   }
 }
 
@@ -263,7 +263,7 @@ void setDiffAtIndex(intMatrix* diffMatrix, int col, int row, int val) {
     fprintf(stderr, "Index out of bound\n");
   }
   else {
-    diffMatrix->ints[col][row] = val;
+    diffMatrix->ints[row][col] = val;
   }
 }
 

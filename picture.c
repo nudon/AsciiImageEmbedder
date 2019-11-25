@@ -202,6 +202,10 @@ image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRo
       aProfile = newProfileMatrix(regionColors);
       divideColor(average, numPixels);
       aProfile->averageColor = average;
+      aProfile->diff = createIntMatrix(aProfile);
+      fillDiffMatrix(aProfile->diff, aProfile, -1);
+      aProfile->edgeScores = calculateEdgeScores(aProfile);
+      
       pic->profiles[regy - 1][regx - 1] = aProfile;
     }
   }
@@ -239,7 +243,7 @@ void matchImageToCharacters(image* pic, characterSet* characterSet) {
   int regionRows = pic->numberOfRegionRows;
   for(int regy = 1; regy <= regionRows; regy++) {
     for(int regx = 1; regx <= regionCols; regx++) {
-      val = matchProfileToCharacter(pic->profiles[regy - 1][regx - 1], characterSet);
+      val = closestCharacterToProfile(pic->profiles[regy - 1][regx - 1], characterSet);
       pic->filledCharacterss[regy - 1][regx - 1] = val;
       //printf("%s", val->charVal);
     }
@@ -273,17 +277,15 @@ void shovePixelWandIntoMyColor(PixelWand* aPixel, myColor* color) {
   int ntn = 255;
   //the get value return a normalized value (between 0-1)
   //restore them to full size
-  PixelGetHSL(aPixel, &(color->hue), &(color->sat), &(color->lightness));
+  double h,s,l;
+  PixelGetHSL(aPixel, &h, &s, &l);
   //unsure whether to use regular getColor or getColorQuantum
-  color->red = PixelGetRed(aPixel);
-  color->green = PixelGetGreen(aPixel);
-  color->blue =  PixelGetBlue(aPixel);
-  color->hue *= ntn;
-  color->sat *= ntn;
-  color->lightness *= ntn;
-  color->red *= ntn;
-  color->green *= ntn;
-  color->blue *= ntn;
+  color->red = PixelGetRed(aPixel) * ntn;
+  color->green = PixelGetGreen(aPixel) * ntn;
+  color->blue =  PixelGetBlue(aPixel) * ntn;
+  color->hue  = h * ntn;
+  color->sat = s * ntn;
+  color->lightness = l * ntn;
   //thats it
 }
 
@@ -306,16 +308,16 @@ myColor* calculateAverageColor(colorMatrix* colorMatrix) {
 void drawPicToDisk(image* pic, characterSet* charSet) {
   char* font = charSet->font;
   int fs = charSet->fontSize;
-  MagickWand* staff = NewMagickWand();
-  DrawingWand* creator = NewDrawingWand();
-  DrawSetFont(creator, font);
-  DrawSetFontSize(creator, fs);
+  MagickWand* img = NewMagickWand();
+  DrawingWand* drawer = NewDrawingWand();
+  DrawSetFont(drawer, font);
+  DrawSetFontSize(drawer, fs);
   PixelWand* black = NewPixelWand();
   PixelSetColor(black, "black");
-  DrawSetFillColor(creator, black);
+  DrawSetFillColor(drawer, black);
   PixelWand* white = NewPixelWand();
   PixelSetColor(white, "white");
-  MagickSetFirstIterator(staff);
+  MagickSetFirstIterator(img);
   float fontX;
   float fontY;
   //no, bad, do integer truncation later in caluclations
@@ -334,16 +336,16 @@ void drawPicToDisk(image* pic, characterSet* charSet) {
   //  MagickNewImage(staff, pic->width, pic->height, white);
   //fprintf(stderr, "dims in image struct: width is %d, height is %d\n", pic->width, pic->height );
   //fprintf(stderr, "dims used in drawing function: width is %d, height is %d\n", imgDimX, imgDimY);
-  MagickNewImage(staff, imgDimX, imgDimY, white);
-  DrawSetTextEncoding(creator, "UTF-8");
-  //slowDraw(pic, staff, creator);
-  //fastDraw(pic, staff, creator);
-  superFastDraw(pic, staff, creator);
-  MagickWriteImage(staff, outputFileName);
+  MagickNewImage(img, imgDimX, imgDimY, white);
+  DrawSetTextEncoding(drawer, "UTF-8");
+  slowDraw(pic, img, drawer);
+  //fastDraw(pic, img, drawer);
+  //superFastDraw(pic, img, drawer);
+  MagickWriteImage(img, outputFileName);
   DestroyPixelWand(white);
   DestroyPixelWand(black);
-  DestroyMagickWand(staff);
-  DestroyDrawingWand(creator);
+  DestroyMagickWand(img);
+  DestroyDrawingWand(drawer);
 }
 
 void superFastDraw (image* pic, MagickWand* staff, DrawingWand* drawer){
@@ -422,17 +424,29 @@ void slowDraw(image* pic, MagickWand* staff, DrawingWand* drawer) {
   //only use is if you want to pretend that certain fonts are mono-space
   //or if wasted cpu cycles are your primary source of heat
   char* charVal;
+  PixelWand* color = NewPixelWand();
+  myColor* col;
+  int format_size = 32;
+  char format[format_size];
+  
   int rows = pic->numberOfRegionRows;
   int cols = pic->numberOfRegionCols;
   int spaceY = getSpaceY();
   int spaceX = getSpaceX();
   int fontW = 0, fontH = 0;
+  profileMatrix* p;
   fontW = pic->profiles[0][0]->cols;
   fontH = pic->profiles[0][0]->rows;
     for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
 
       for (int colIndex = 0; colIndex < cols; colIndex++) {
 	charVal = pic->filledCharacterss[rowIndex][colIndex]->charVal;
+	p = getProfile(pic, rowIndex, colIndex);
+	col = p->averageColor;
+	snprintf(format, format_size, "rgb(%i,%i,%i)", col->red, col->blue, col->green);
+	
+	PixelSetColor(color, format);
+	DrawSetFillColor(drawer, color);
 	MagickAnnotateImage(staff,
 			    drawer,
 			    colIndex * ( spaceX + fontW),

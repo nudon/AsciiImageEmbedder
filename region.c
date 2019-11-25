@@ -26,7 +26,7 @@ static float globHitWeight = 1;
 static float globMissDecay = 1;
 static float globMissWeight = 1;
 
-static character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
+character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
 void setDiffParam(int new) {
   if (new > 0) {
@@ -122,13 +122,13 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
   int cols = prof->source->cols;
   int testC, testR, testNumber;
   myColor* current, *compare;
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-      setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+      for (int colIndex = 0; colIndex < cols; colIndex++) {
+	setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
     }
   }
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
       current = getColor(prof->source, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
@@ -175,8 +175,8 @@ void fillDiffMatrixAlt(  intMatrix* detectedEdges, profileMatrix* prof) {
   int rows = prof->source->rows;
   int cols = prof->source->cols;
   int val;
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
       setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
     }
   }
@@ -200,34 +200,8 @@ profileMatrix* generateProfileFromColor(colorMatrix* colors) {
   fillDiffMatrix(difs, profile, diffParam);
   //fillDiffMatrixAlt(difs, profile);
   profile->diff = difs;
-  calculateEdgeScores(profile);
+  profile->edgeScores = calculateEdgeScores(profile);
   return profile;
-}
-
-
-character* matchProfileToCharacter(profileMatrix* prof,  characterSet* charSet) {
-  //given a profileMatrix with a color matrix, will generate a diff matrix
-  //then generate an edge scores based on diff matrix
-  //then find a closest match to a character in charSet
-  int locDiffParam = -1;
-  if (prof->edgeScores == NULL) {
-    if (prof->diff == NULL) {
-      intMatrix* diff = createIntMatrix(prof);
-      prof->diff = diff;
-      if (prof->source != NULL) {
-	//locDiffParam = averageCompareResults(prof->source);
-	//autoSetColorComponentScale(prof->source);
-	fillDiffMatrix(diff, prof, locDiffParam);
-      }
-      else {
-	fprintf(stderr,"Error, given a profile with no colorMatrix\n");
-	return NULL;
-      }
-    }
-    edges* foundEdges = calculateEdgeScores(prof);
-    prof->edgeScores = foundEdges;
-  }
-  return closestCharacterToProfile(prof, charSet);
 }
 
 edges* calculateEdgeScores(profileMatrix* prof) {
@@ -244,7 +218,7 @@ edges* calculateEdgeScores(profileMatrix* prof) {
   return ret;
 }
 
-static character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet) {
+character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet) {
   //given a profile, finds a closest match to a profile found in charSet
   float score;
   float min = -1;
@@ -260,23 +234,16 @@ static character* closestCharacterToProfile(profileMatrix* subSect,  characterSe
     index++;
   }
   if (match == NULL) {
-    printf("segfaults inbound because no match\n");
+    printf("no match was found, segfaults inbound\n");
   }
   return match;
 }
 
 
-//so this doesn't work at all
-//think it's because I'm not calculating misses
-//also, I think anything with lots of space get's high scores in everything
-//maybe implement a distance dropoff?
-//well, actually I can run the program with dist, hitDecay, and missDecay all equal to 1. and the output looked the same. So technichally I don't think I even need any of the functionality of betterCalcEdges.
-//so, fixed the issue, which was that i wasn't even looking at the diff values before incrementing, so everything had same score, so everything was spaces
-//actually implemented everything and it looks good. So good that it should be default.
-//think in cases where characters represent larger areas the slower one does better, or in collages, but often I have fontsize super tiny so there's not much benefit
+
 edges* quickCalcEdges(profileMatrix* prof) {
   //idea here, just travers diffMatrix
-  //if an index is within some bounds, add to edgeScore
+  //if a hihg diff is within some region, add to edgeScore
   int colDim = prof->cols;
   int rowDim = prof->rows;
   int vertColCheckRad = (colDim / 4) + 1;
@@ -296,16 +263,8 @@ edges* quickCalcEdges(profileMatrix* prof) {
   float shiftRat = 0;
   int diffVal;
   //the int matrix is the one matrix I made which has the inner index as rows instead of columns
-  for (int colIndex = 0; colIndex < colDim; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
-      //just going to be 8 if statements. Could be worse
-      //might be worse for diags, will see. worstace just do a regular traversal and  no that's dumb
-      //will figure that out. might just have to disable
-
-      //also, can't dothe successive hits being worth less.
-      //just increment
-      //thought something was off. One idea was to add statements to decrement a score instead of just counting hits
-      //know what even cooler than that? actually only incrementing an edge score if the diff at the index is set. 
+  for (int rowIndex = 0; rowIndex < rowDim; rowIndex++) {
+    for (int colIndex = 0; colIndex < colDim; colIndex++) {
       diffVal = getDiffAtIndex(prof->diff, colIndex, rowIndex);
       if (colIndex <= vertColCheckRad) {
 	if (diffVal == diffYes) {
@@ -356,16 +315,7 @@ edges* quickCalcEdges(profileMatrix* prof) {
 	  tableScore--;
 	}
       }
-      //diagnols are going to be hard
-      //somehow find a quick way if a point is in upper/lower triangle
-      //if I had that, could find which region current point is, add the diagCheckRads, and see if region changed
-      //seems doable, more work involving index ratios
-      //instead of comparing index ratios, could throw indexes into atan or something and get an angle
-      //if do all the comparison on if current angle is greater/less than angle of atan(colDim, rowDim)
-      //would be a race between floatingPoint division and functionCalls + the trig implementation
-      //I think floatingPoint math is still faster
-
-      //floatingPointExceptions are not fun
+      //diagnols
       if (rowIndex == 0) {
 	backwardScore++;
       }
@@ -379,7 +329,7 @@ edges* quickCalcEdges(profileMatrix* prof) {
 	  if (shiftRat < dimRat) {
 
 	    if (diffVal == diffYes) {
-	      	    backwardScore++;
+	      backwardScore++;
 	    }
 	    else if (diffVal == diffNo) {
 	      backwardScore--;
@@ -438,7 +388,7 @@ edges* quickCalcEdges(profileMatrix* prof) {
       }
 
       if (diffVal == diffErr) {
-	fprintf(stderr, "Diff val was neither yes or no\n");
+	fprintf(stderr, "Diff val was not set\n");
       }
 
     }
@@ -473,8 +423,6 @@ edges* betterPopulateEdges(profileMatrix* prof) {
   colDim = prof->source->cols - 1;
   //the -1 keeps traversal within matrix
   //really these shouls be called rowMax
-  //othersise one final check is done outside matrix
-  //printf("\nONTO A NEW PROFILE\n");
   while(checkType != doneChecking) {
     if (checkType == topCheck) {
       rowStart = 0;
@@ -535,7 +483,6 @@ edges* betterPopulateEdges(profileMatrix* prof) {
       numRuns++;
     }
     edgeScore = edgeScore/numRuns;
-    //printf("\n\n\n\n\nFinished edgeScore is %f\n\n\n\n", edgeScore);
     if (checkType == topCheck) {
       foundEdges->top = edgeScore;
       checkType = bottomCheck;
@@ -577,14 +524,6 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   //given a cur index, carries out a roughly orthogonal traversal
   //and computes a result based on number of 1's and 0's in diffMatrix
   
-  //beyond that, maybe have a distanceFromCurrent decay
-  //would have to plan it so when both orthOffsets near the checkRads
-  //the decay would be some fixed number, like .1
-  //so decay is proportional to distance of rectangle
-  //not the number of loops
-  //so decay amount^numLoops = c
-  //some root math
-
   float edgeHits = 0;
   float edgeMisses = 0;
 
@@ -612,13 +551,10 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
 ;
 
   int diff;
-  //stands for both out of bound
-  //could of called it BOOB
-  //you know what would be cool? if I initialized it to zero
   int bothOOB = 0;
 
   
-  if (whichCheck == topCheck ||whichCheck ==  bottomCheck ||whichCheck ==  tableCheck) {
+  if (whichCheck == topCheck || whichCheck == bottomCheck || whichCheck == tableCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = 0;
     //printf("Checking horizontally\n");
@@ -629,13 +565,6 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
     //printf("Checking vertically\n");
   }
   else if (whichCheck == forwardCheck || whichCheck == backwardCheck) {
-    //some concern here
-    //potentially ratios could be super skewed
-    //in which case I basically check entire array for diffs
-    //might be okay, 2 reasons
-    //first, most font aspect ratios are about .5, so using dim / 4 should work
-    //second, if fonr ratio was super odd, like .1,
-    //then there would be little distinction between diagnols and straight lines anyways
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = (rowDim / 4) + 1;
     //printf("Checking diagnolly\n");
@@ -647,18 +576,11 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   //distanceDecay = 1;
   //distanceDecayAmount = 1;
   
-
-  //printf("start cords are: %d , %d\n", colCur, rowCur);
-  //printf("end cords are  : %d , %d\n", colCur + colCheckRad, rowCur + rowCheckRad);
-  //had an error here
-  //checked bothOOB != 2 last, so if previouse
-  
   while(orthogonalTraverse(colCur, rowCur,
 			   &colOrthOff, &rowOrthOff, 
 			   colCur + colCheckRad, rowCur + rowCheckRad) != 1
 	&& bothOOB != 2){
     bothOOB = 0;
-    //printf("current offsets are: %d , %d\n", colOrthOff, rowOrthOff);
     diff = getDiffAtIndex(diffMatrix,colCur + colOrthOff,rowCur + rowOrthOff);;
     if (diff == diffYes) {
 	edgeHits += hitWeight * hitAmount * distanceDecay;
@@ -672,7 +594,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
       bothOOB++;
     }
     else {
-      //printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
+      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
     
     diff = getDiffAtIndex(diffMatrix,colCur - colOrthOff,rowCur - rowOrthOff);
@@ -688,7 +610,7 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
       bothOOB++;
     }
     else {
-      //printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
+      printf("Have unspecified number %d in col:%d row:%d\n", diff, colCur + colOrthOff, rowCur + rowOrthOff);
     }
     distanceDecay *= distanceDecayAmount;
   }
@@ -760,7 +682,6 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
   int changey = 0;
   int curx = startx + *offx;
   int cury = starty + *offy;
-  //printf("Starting regular traversal\nStart pos   are: %d, %d\ncurrent pos   : %d, %d\n end cords are  : %d, %d\n",startx, starty, curx, cury, endx, endy);
   if (curx != endx || cury != endy) {
     if (curx < endx) {
       changex = 1;
@@ -799,13 +720,10 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
     ret = 0;
   }
   else {
-    //already at end
-    //printf("done with traversal\n");
     ret = 1;
   }
   curx = startx + *offx;
   cury = starty + *offy;
-  //printf("after moving currents: %d, %d\n", curx, cury);
   return ret;
 }
 
@@ -826,22 +744,15 @@ float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
 
 //kind of prototype version that does has a variable weight for edge/colorscores
 float compareProfilesVar(profileMatrix* regP, profileMatrix* charP) {
-  float totScore, edgeScore, avgColorScore;
-  edgeScore = compareEdges(regP->edgeScores, charP->edgeScores);
-  avgColorScore = getPixelDif(regP->averageColor, charP->averageColor);
-  avgColorScore = compareLightmarks(regP->mark, charP->mark);
+  float totScore = 0;
   if (regP->neighborEdgeDiff < 0) {
     //it's a so-called meta-edge, give edgescore
-    edgeScore *= 1;
-    avgColorScore *= 0;
+    totScore = compareEdges(regP->edgeScores, charP->edgeScores);
   }
   else {
-    edgeScore *= 0;
-    avgColorScore *= 1;
+    //avgColorScore = getPixelDif(regP->averageColor, charP->averageColor);
+    totScore = compareLightmarks(regP->mark, charP->mark);
   }
-  //edgeScore *= edgeScoreWeight;
-  //avgColorScore *= colorScoreWeight;
-  totScore = edgeScore + avgColorScore;
   return totScore;
 }
 
@@ -945,26 +856,8 @@ void averageReduceEdgeScores(edges* edges) {
       temp = &(edges->backward);
       whichCheck = doneChecking;
     }
-    //test, checking if zeroing out sub-average edges is a good itea
-    //would be weird, because current'y I'm allowing negative values...
-    //will have some sentinal value in meantime,
     *temp = *temp - average;
-    
-    if (*temp < 0) {
-      *temp = 0;
-    }
-
-    /*
-    int SENT = -9999;
-    if (*temp < average) {
-      *temp = SENT;
-    }
-    */
-
-    //old way
-    //*temp = *temp - average;
   }
-  
 }
 
 float averageCompareResults(colorMatrix* colors) {
@@ -977,8 +870,8 @@ float averageCompareResults(colorMatrix* colors) {
   myColor* current, *compare;
   long results = 0;
   int numRuns = 0;
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
       current = getColor(colors, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
@@ -1039,8 +932,8 @@ void autoSetColorComponentScale(colorMatrix* source) {
   long totLightnessDif = 0;
   long totSaturationDif = 0;
   int totalCompares = 0;
-  for (int colIndex = 0; colIndex < cols; colIndex++) {
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+    for (int colIndex = 0; colIndex < cols; colIndex++) {
       current = getColor(source, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
@@ -1105,33 +998,6 @@ int hueDif(myColor* c1, myColor* c2) {
   }
   return temp;
 }
-
-
-
-int sameIntMatrix(intMatrix* m1, intMatrix* m2) {
-  //to be used primarily in sniffing out bad characters in fonts
-  //only issue is that with one font there have been a left and right justified ? rendered on errors
-  //not sure what determines how that's alligned, but it's a source of error
-  //apparently 0xEF 0xBF 0xBF should be an intCode for an invalid character
-  //unless fonts are cheeky and supply a glyph for the invalid character, should be fine for some of the ?'s
-  int ret = 0, rows = m1->rows, cols = m1->cols, val1, val2;
-  if (m1->rows == m2->rows && m1->cols == m2->cols) {
-    ret = 1;
-    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-      for (int colIndex = 0; colIndex < cols; colIndex++) {
-	val1 = getDiffAtIndex(m1, colIndex, rowIndex);
-	val2 = getDiffAtIndex(m2, colIndex, rowIndex);
-	if ( val1 != val2) {
-	  ret = 0;
-	  colIndex = cols;
-	  rowIndex = rows;
-	}
-      }
-    }
-  }
-  return ret;
-}
-
 
 void test(image* pic) {
   //sort of prototype function for how I want to do the new color/edge score preference
@@ -1272,14 +1138,6 @@ void test(image* pic) {
       curr->neighborEdgeDiff = regionAvg - compAvg;
     }
   }
-  //if average neighbor distance is greater than pictures total avg
-  //then either dramatically increase edgescore wieght or set color score to 0 weight
-  //otherwise swap out the score increases/decreases
-
-  //realized I could also do this with my edge detection
-  //since that's currently marking edges if a single neighbor difference is greater than the average
-  //could change it so it looks across all neighbors. 
-  
 }
 
 
