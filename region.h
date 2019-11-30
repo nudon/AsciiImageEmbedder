@@ -40,6 +40,7 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 int  orthogonalTraverse(int startx, int starty, int* offx, int* offy, int endx, int endy);
 
 profileMatrix* generateProfileFromColor(colorMatrix* colors);
+profileMatrix* mem_light_generateProfileFromColor(colorMatrix* colors, intMatrix* diff);
 
 character* closestCharacterToProfile(profileMatrix* subSect,  characterSet* charSet);
 
@@ -87,5 +88,9 @@ void  test(image* pic);
 int max_neighbor_diff(profileMatrix* prof, int x, int y);
 
 void fillDiffMatrixAlt(  intMatrix* detectedEdges, profileMatrix* prof);
+
+void half_neighbor_traverse(int *testNumber, int col_i, int row_i, int* col_off, int* row_off);
+
+void full_neighbor_traverse(int *testNumber, int col_i, int row_i, int* col_off, int* row_off);
 
 #endif

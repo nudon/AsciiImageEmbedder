@@ -46,18 +46,18 @@ char* missDecay = "missDecay";
 char* help = "help";
 
 void printHelpMessage() {
-  fprintf(stderr, "%s=$INT: Controls the size of the font the image gets embedded in\n", fontSizeOpt);
-  fprintf(stderr, "%s=$NAME: specifies which font to use in the font folder. need to include extention in\n", fontNameOpt);
-  fprintf(stderr, "%s=$NAME: specifies the name of the image to output to in\n",outputFile );
-  fprintf(stderr, "%s=$INT: Specifies the in-between character  spacing, so picture looks correct when viewed in application in\n", spaceX);
-  fprintf(stderr, "%s=$INT: Specifies the line spacing, so picture looks correct when viewed in application in\n", spaceY);
-  fprintf(stderr, "%s=$FLOAT: Sets the weight assigned to edge scores when matching profiles\n", edgeWeight);
-  fprintf(stderr, "%s=$FLOAT: Sets the wieght assigned to the average colors of profiles\n", colorWeight);
+  fprintf(stderr, "--%s=$INT: Controls the size of the font the image gets embedded in\n", fontSizeOpt);
+  fprintf(stderr, "--%s=$NAME: specifies which font to use in the font folder. need to include extention in\n", fontNameOpt);
+  fprintf(stderr, "--%s=$NAME: specifies the name of the image to output to in\n",outputFile );
+  fprintf(stderr, "--%s=$INT: Specifies the in-between character  spacing, so picture looks correct when viewed in application in\n", spaceX);
+  fprintf(stderr, "--%s=$INT: Specifies the line spacing, so picture looks correct when viewed in application in\n", spaceY);
+  fprintf(stderr, "--%s=$FLOAT: Sets the weight assigned to edge scores when matching profiles\n", edgeWeight);
+  fprintf(stderr, "--%s=$FLOAT: Sets the wieght assigned to the average colors of profiles\n", colorWeight);
   fprintf(stderr, "Using HSL color scheme, look at that if this doesn't make sense: \n");
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to saturation differences when comparing colors\n", saturationScale);
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to lightness differences when comparing colors\n", lightnessScale);
-  fprintf(stderr, "%s=$FLOAT: Sets weight assigend to hue differences when comparing colors\n", hueScale);
-  fprintf(stderr, "%s: Option to automatically generate color component scales \n", autoGenColorScale);
+  fprintf(stderr, "--%s=$FLOAT: Sets weight assigend to saturation differences when comparing colors\n", saturationScale);
+  fprintf(stderr, "--%s=$FLOAT: Sets weight assigend to lightness differences when comparing colors\n", lightnessScale);
+  fprintf(stderr, "--%s=$FLOAT: Sets weight assigend to hue differences when comparing colors\n", hueScale);
+  fprintf(stderr, "--%s: Option to automatically generate color component scales \n", autoGenColorScale);
 }
 //also want ones for the color components
 

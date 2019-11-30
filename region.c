@@ -120,7 +120,7 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
 
   int rows = prof->source->rows;
   int cols = prof->source->cols;
-  int testC, testR, testNumber;
+  int testC, testR, testNumber, offC,offR;
   myColor* current, *compare;
   for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
       for (int colIndex = 0; colIndex < cols; colIndex++) {
@@ -132,34 +132,14 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
       current = getColor(prof->source, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
-	if (testNumber == 1) {
-	  //pixel to right
-	  testC = colIndex + 1;
-	  testR = rowIndex;
-	}
-	else if (testNumber == 2) {
-	  //pixel diagnol bottom right
-	  testR = rowIndex + 1;
-	}
-	else if (testNumber == 3) {
-	  //pixel below
-	  testC = colIndex;
-	}
-	else if (testNumber == 4) {
-	  //pixel diagnol bottom left
-	  testC = colIndex - 1;
-	  //...
-	  //don't set to zero,  I increment testNumber 
-	  testNumber = -10;
-	}
+	full_neighbor_traverse(&testNumber, colIndex, rowIndex, &offC, &offR);
+	testC = colIndex + offC;
+	testR = rowIndex + offR;
   	compare = getColor(prof->source, testC, testR);
-	//eventually...
 	if (compare != NULL && getPixelDif(current, compare) > param) {
-	  //detect edge
 	  setDiffAtIndex(detectedEdges,colIndex,rowIndex, diffYes);
 	  setDiffAtIndex(detectedEdges,testC,testR, diffYes);
 	}
-	testNumber++;
       }            
     }
   }
@@ -171,16 +151,9 @@ void fillDiffMatrix(  intMatrix* detectedEdges, profileMatrix* prof, int locDiff
 
 //in diff, stores maximum differences between neighboring pixels
 void fillDiffMatrixAlt(  intMatrix* detectedEdges, profileMatrix* prof) {
-
   int rows = prof->source->rows;
   int cols = prof->source->cols;
   int val;
-  for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-    for (int colIndex = 0; colIndex < cols; colIndex++) {
-      setDiffAtIndex(detectedEdges, colIndex, rowIndex, diffNo);
-    }
-  }
-  //reverse for header order?
   for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
     for (int colIndex = 0; colIndex < cols; colIndex++) {
       val = max_neighbor_diff(prof, colIndex, rowIndex);
@@ -201,6 +174,21 @@ profileMatrix* generateProfileFromColor(colorMatrix* colors) {
   //fillDiffMatrixAlt(difs, profile);
   profile->diff = difs;
   profile->edgeScores = calculateEdgeScores(profile);
+  return profile;
+}
+
+profileMatrix* mem_light_generateProfileFromColor(colorMatrix* colors, intMatrix* diff) {
+  int diffParam = -1;
+  //diffParam = averageCompareResults(colors);
+  profileMatrix* profile = newProfileMatrix(colors);
+  myColor* averageColor = calculateAverageColor(colors);
+  profile->averageColor = averageColor;
+  fillDiffMatrix(diff, profile, diffParam);
+  //fillDiffMatrixAlt(difs, profile);
+  profile->edgeScores = calculateEdgeScores(profile);
+  //set diff/color sources to null so bad things don't happen when I free
+  profile->diff = NULL;
+  profile->source = NULL;
   return profile;
 }
 
@@ -557,24 +545,19 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
   if (whichCheck == topCheck || whichCheck == bottomCheck || whichCheck == tableCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = 0;
-    //printf("Checking horizontally\n");
   }
   else if (whichCheck == leftCheck || whichCheck == rightCheck || whichCheck == poleCheck) {
     colCheckRad = 0;
     rowCheckRad = (rowDim / 4) + 1;
-    //printf("Checking vertically\n");
   }
   else if (whichCheck == forwardCheck || whichCheck == backwardCheck) {
     colCheckRad = (colDim / 4) + 1;
     rowCheckRad = (rowDim / 4) + 1;
-    //printf("Checking diagnolly\n");
   }
   lengthOfPath = colCheckRad + rowCheckRad;
   //want distanceDacay ^ lengthOfPath = maxDistanceWeight
   distanceDecayAmount = pow(maxDistanceWeight, (double)1/(lengthOfPath));
   distanceDecay = 1;
-  //distanceDecay = 1;
-  //distanceDecayAmount = 1;
   
   while(orthogonalTraverse(colCur, rowCur,
 			   &colOrthOff, &rowOrthOff, 
@@ -614,11 +597,6 @@ float betterGenerateEdgeScore(intMatrix* diffMatrix, int colCur, int rowCur, int
     }
     distanceDecay *= distanceDecayAmount;
   }
-  //printf("\n\n\nCalculated edge score of %f \n\n", edgeHits - edgeMisses);
-  //need to figure out what to do if there are no misses.
-  //one idea, could just subtrace the two instead of dividing
-  //that would be simple.
-  //only issue Is I need to fix my compare, because that takes abs of everything
   return edgeHits - edgeMisses;
 }
 
@@ -729,9 +707,6 @@ int traverse(int startx, int starty, int* offx, int* offy, int endx, int endy) {
 
 
 float compareProfiles(profileMatrix* p1, profileMatrix* p2) {
-  if (0) {
-    return compareProfilesVar(p1, p2);
-  }
   float totScore, edgeScore, avgColorScore; 
   edgeScore = compareEdges(p1->edgeScores, p2->edgeScores);
   avgColorScore = getPixelDif(p1->averageColor, p2->averageColor);
@@ -866,7 +841,7 @@ float averageCompareResults(colorMatrix* colors) {
   //if there's any bugs in one, there's bugs in the other  
   int rows = colors->rows;
   int cols = colors->cols;
-  int testC, testR, testNumber;
+  int testC, testR, testNumber, offC, offR;
   myColor* current, *compare;
   long results = 0;
   int numRuns = 0;
@@ -875,26 +850,10 @@ float averageCompareResults(colorMatrix* colors) {
       current = getColor(colors, colIndex, rowIndex);
       testNumber = 1;
       while(testNumber > 0) {
-	if (testNumber == 1) {
-	  //pixel to right
-	  testC = colIndex + 1;
-	  testR = rowIndex;
-	}
-	else if (testNumber == 2) {
-	  //pixel diagnol bottom right
-	  testR = rowIndex + 1;
-	}
-	else if (testNumber == 3) {
-	  //pixel below
-	  testC = colIndex;
-	}
-	else if (testNumber == 4) {
-	  //pixel diagnol bottom left
-	  testC = colIndex - 1;
-	  //...
-	  //don't set to zero,  I increment testNumber 
-	  testNumber = -10;
-	}
+	half_neighbor_traverse(&testNumber, colIndex, rowIndex, &offC, &offR);
+	testC = colIndex + offC;
+	testR = rowIndex + offR;
+	
 	compare = getColor(colors, testC, testR);
 	//eventually...
 	if (compare != NULL) {
@@ -1000,56 +959,18 @@ int hueDif(myColor* c1, myColor* c2) {
 }
 
 void test(image* pic) {
-  //sort of prototype function for how I want to do the new color/edge score preference
-
-  //relized I could do this in 2 very simple steps
-
-  //first, after calculating edge scores for everything,
-  //traverse edge scores, compute pairwise distance between adjacent edge scores, get some average.
-
-  //for implementation, could do multiple things
-  //could either do double[][],s or use a gen_matrix
-
-  //second, for storing results of comparisions, could either re-use double[][] or gen_matrix, or add a field to profiles to hold it
-
-  //will go for double[][] and fields storage of results,
-
-
-  //also, realized in the compare edges I could have 3 cases
-  //if thing is marked as an edge and meta-edge, purely use edge scores
-  //if thing isn't an edge and has less than average neigbor-edge comparision, use purely color
-  //otherwise use both equally or supplied by user.
-  //actually that's dumb because I only have meta-edge/non-meta-edge distinctions. I have edge scores for everything but don't have edges/non-edges for profiles
-  //image *pic;
   profileMatrix *curr, *comp;
-  int testC, testR, testNumber, compCount = 0;
+  int testC, testR, testNumber, offC, offR,compCount = 0;
   double compTot = 0, compAvg = -1;
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
       curr = pic->profiles[rowIndex][colIndex];
       testNumber = 1;
       while(testNumber > 0) {
-	if (testNumber == 1) {
-	  //pixel to right
-	  testC = colIndex + 1;
-	  testR = rowIndex;
-	}
-	else if (testNumber == 2) {
-	  //pixel diagnol bottom right
-	  testR = rowIndex + 1;
-	}
-	else if (testNumber == 3) {
-	  //pixel below
-	  testC = colIndex;
-	}
-	else if (testNumber == 4) {
-	  //pixel diagnol bottom left
-	  testC = colIndex - 1;
-	  //...
-	  //don't set to zero,  I increment testNumber 
-	  testNumber = -10;
-	}
-	testNumber++;
+	half_neighbor_traverse(&testNumber, colIndex, rowIndex, &offC, &offR);
+	testC = colIndex + offC;
+	testR = rowIndex + offR;
+	
 	comp = getProfile(pic, testR,testC);
 	if (comp != NULL) {
 	  //find difference between edges
@@ -1066,6 +987,7 @@ void test(image* pic) {
   
   //second, retraverse, compute average edge scores between neighbors,
   int regionCount;
+  int colOff, rowOff;
   double regionTot, regionAvg;
   for (int rowIndex = 0; rowIndex < pic->numberOfRegionRows; rowIndex++) {
     for (int colIndex = 0; colIndex < pic->numberOfRegionCols; colIndex++) {
@@ -1075,56 +997,10 @@ void test(image* pic) {
       curr = pic->profiles[rowIndex][colIndex];
       testNumber = 1;
       while(testNumber > 0) {
-	//modified version, has to compute all 8 neighbors
-	switch(testNumber) {
-	case 1:
-	  //pixel to right
-	  testC = colIndex + 1;
-	  testR = rowIndex;
-	  break;
-	case 2:
-	    //pixel diagnol bottom right
-	  testC = colIndex;
-	  testR = rowIndex + 1;
-	  break;
-	case 3:
-	  //pixel below
-	  testC = colIndex;
-	  testR = rowIndex + 1;
-	  break;
-	case 4:
-	  //pixel diagnol bottom left
-	  testC = colIndex - 1;
-	  testR = rowIndex + 1;
-	  break;
-	case 5:
-	  //pixel to left
-	  testC = colIndex - 1;
-	  testR = rowIndex;
-	  break;
-	case 6 :
-	  //pixel diagnol top left
-	  testC = colIndex - 1;
-	  testR = rowIndex - 1;
-	  break;
-	case 7:
-	  //pixel is above
-	  testC = colIndex;
-	  testR = rowIndex - 1;
-	  break;
-	case 8:
-	  //pixel is top right
-	  testC = colIndex + 1;
-	  testR = rowIndex - 1;
-	  //end loop
-	  testNumber = -10;
-	  break;
-	default:
-   
-	  break;
-	}
-
-	testNumber++;
+	full_neighbor_traverse(&testNumber, colIndex, rowIndex, &colOff, &rowOff);
+	testC = colIndex + colOff;
+	testR = rowIndex + rowOff;
+	
 	comp = getProfile(pic, testR,testC);
 	if (comp != NULL) {
 	  //find difference between edges
@@ -1140,67 +1016,70 @@ void test(image* pic) {
   }
 }
 
+void half_neighbor_traverse(int *testNumber, int col_i, int row_i, int* col_off, int* row_off) {
+  if (*testNumber > 4) {
+    *testNumber = -10;
+  }
+  else {
+    full_neighbor_traverse(testNumber, col_i, row_i, col_off, row_off);
+  }
+}
+
+void full_neighbor_traverse(int *testNumber, int col_i, int row_i, int* col_off, int* row_off) {
+  switch(*testNumber) {
+  case 1:
+    *col_off = -1;
+    *row_off = -1;
+    break;
+  case 2:
+    *col_off = -1;
+    *row_off = 0;
+    break;
+  case 3:
+    *col_off = -1;
+    *row_off = 1;
+    break;
+  case 4:
+    *col_off = 0;
+    *row_off = -1;
+    break;
+  case 5:
+    *col_off = 0;
+    *row_off = 1;
+    break;
+  case 6 :
+    *col_off = 1;
+    *row_off = -1;
+    break;
+  case 7:
+    *col_off = 1;
+    *row_off = 0;
+    break;
+  case 8:
+    *col_off = 1;
+    *row_off = 1;
+    //end loop
+    *testNumber = -2;
+    break;
+  default:
+    printf("error in full traversal, unknown test number %d\n", *testNumber);
+    break;
+  }
+  *testNumber += 1;
+
+}
 
 int max_neighbor_diff(profileMatrix* prof, int x, int y) {
   int testNumber = 1;
   int max = -1, temp = 0;
   myColor *curr, *test;
   curr = getColor(prof->source, x, y);
-  int colIndex = x;
-  int rowIndex = y;
-  int testC = x;
-  int testR = y;
+  int testC, testR, offC, offR;
   while(testNumber > 0) {
-    //modified version, has to compute all 8 neighbors
-    switch(testNumber) {
-    case 1:
-      //pixel to right
-      testC = colIndex + 1;
-      testR = rowIndex;
-      break;
-    case 2:
-      //pixel diagnol bottom right
-      testC = colIndex;
-      testR = rowIndex + 1;
-      break;
-    case 3:
-      //pixel below
-      testC = colIndex;
-      testR = rowIndex + 1;
-      break;
-    case 4:
-      //pixel diagnol bottom left
-      testC = colIndex - 1;
-      testR = rowIndex + 1;
-      break;
-    case 5:
-      //pixel to left
-      testC = colIndex - 1;
-      testR = rowIndex;
-      break;
-    case 6 :
-      //pixel diagnol top left
-      testC = colIndex - 1;
-      testR = rowIndex - 1;
-      break;
-    case 7:
-      //pixel is above
-      testC = colIndex;
-      testR = rowIndex - 1;
-      break;
-    case 8:
-      //pixel is top right
-      testC = colIndex + 1;
-      testR = rowIndex - 1;
-      //end loop
-      testNumber = -10;
-      break;
-    default:
-   
-      break;
-    }
+    full_neighbor_traverse(&testNumber, x, y, &offC, &offR);
+    testC = x + offC;
+    testR = y + offR;
     
-    testNumber++;
     test = getColor(prof->source, testC, testR);
     if (test != NULL) {
       temp = abs(getPixelDif(curr, test));

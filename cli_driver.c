@@ -17,7 +17,7 @@ characterSet* charSet;
 
 image* mem_light_picture(char* filename, int reg_width, int reg_height);
 
-image* regular_picture(char* filename, int reg_width, int reg_height);
+image* regular_picture(char* filename, float reg_width, float reg_height);
 
 
 int main(int argc, char * argv[]) {
@@ -26,8 +26,8 @@ int main(int argc, char * argv[]) {
   char* fileName;
   float fontWidth;
   float fontHeight;
-  int regionWidth;
-  int regionHeight;
+  //int regionWidth;
+  //int regionHeight;
   setDefaultOpts();
   char* fontPath;
   char* outputFileName;
@@ -46,13 +46,11 @@ int main(int argc, char * argv[]) {
     charSet = buildCharacterSet(fontPath, fontSize);
     fontWidth = charSet->avgWidth;
     fontHeight = charSet->avgHeight;
-    regionWidth = ceil(fontWidth);
-    regionHeight = ceil(fontHeight);
-    printf("Regions dimension are: %d , %d\n", regionWidth, regionHeight);
-    //read filename into a colormatrix
-    pic = regular_picture(fileName, regionWidth, regionHeight);
-    //pic = mem_light_picture(fileName, regionWidth, regionHeight;)
-    
+    printf("each font width has a width of %f and a height of %f\n", fontWidth, fontHeight);
+    pic = regular_picture(fileName, fontWidth, fontHeight);
+    //pic = mem_light_picture(fileName, fontWidth, fontHeight);
+    printf("picture has a width of %i characters and a height of %i characters\n", pic->numberOfRegionCols, pic->numberOfRegionRows);
+    printf("total of %i characters\n", pic->numberOfRegionCols * pic->numberOfRegionRows);
     matchImageToCharacters(pic, charSet);
     fprintf(stderr, "writing picture  %s on disk\n", outputFileName);
     drawPicToDisk(pic, charSet);
@@ -62,7 +60,7 @@ int main(int argc, char * argv[]) {
     libQuit();
   }
   else {
-    fprintf(stderr, "Usage is \"%s\" fileName (opt)fontSize (opt)pixleThing (opt) distanceDecay (opt)edgeWeight (opt)colorWeight\n", argv[0]);
+    fprintf(stderr, "Usage is \"%s\" fileName --OPTION=VAL\n", argv[0]);
   }
 }
 
@@ -76,7 +74,7 @@ image* mem_light_picture(char* filename, int reg_w, int reg_h) {
   return pic;
 }
 
-image* regular_picture(char* filename, int reg_w, int reg_h) {
+image* regular_picture(char* filename, float reg_w, float reg_h) {
   colorMatrix* entireImage = generateColorMatrix(filename, reg_w, reg_h);
   image* pic = NULL;
   if (entireImage != NULL) {

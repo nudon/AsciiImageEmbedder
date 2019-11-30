@@ -32,11 +32,11 @@ void mySetFont(char* newFont);
 
 char* getFont();
 
-colorMatrix* generateColorMatrix(char* fileName, int fontWidth, int fontHeight);
+colorMatrix* generateColorMatrix(char* fileName, float fontWidth, float fontHeight);
 
 image* generateImage(colorMatrix* entireImage, int fontWidth, int fontHeight);
 
-void scaleImageToFitFont(MagickWand* staff, int fontw, int fonth);
+void scaleImageToFitFont(MagickWand* staff, float fontw, float fonth);
 
 image* readColorMatrixIntoImage(colorMatrix* entireImage, int regCols, int regRows, int regWidth, int regHeight);
 
